@@ -1,5 +1,7 @@
 pub mod piece;
 pub mod board;
+pub mod notation;
+pub mod pgn;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

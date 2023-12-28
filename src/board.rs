@@ -2,6 +2,12 @@ use std::fmt::{Display, Write};
 
 use crate::piece::{self, PlayerColor};
 
+pub trait ChessGame {
+    fn new() -> Self;
+    fn from_fen(fen: &str) -> Self;
+    fn move_alg(&mut self, mov: &str);
+}
+
 pub struct Board {
     peices: [[Option<piece::ColouredPiece>; 8]; 8],
 }
@@ -11,7 +17,67 @@ impl Board {
         Self {peices: [[None; 8]; 8]}
     }
     pub fn from_fen(input: &str) -> Option<Self>{
-        Some(Self {peices: [[None; 8]; 8]})
+        let mut board = Self {peices: [[None; 8]; 8]};
+        for (i, line) in input.split('/').enumerate() {
+            if i >= 8 {return None};
+            let mut counter = 0;
+            for c in line.chars() {
+                if counter > 8 {return None}
+                match c {
+                    'P' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::WhitePawn);
+                        counter += 1;
+                    }
+                    'N' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::WhiteKnight);
+                        counter += 1;
+                    }
+                    'B' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::WhiteBishop);
+                        counter += 1;
+                    }
+                    'R' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::WhiteRook);
+                        counter += 1;
+                    }
+                    'Q' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::WhiteQueen);
+                        counter += 1;
+                    }
+                    'K' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::WhiteKing);
+                        counter += 1;
+                    }
+                    'p' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::BlackPawn);
+                        counter += 1;
+                    }
+                    'n' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::BlackKnight);
+                        counter += 1;
+                    }
+                    'b' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::BlackBishop);
+                        counter += 1;
+                    }
+                    'r' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::BlackRook);
+                        counter += 1;
+                    }
+                    'q' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::BlackQueen);
+                        counter += 1;
+                    }
+                    'k' => {
+                        board.peices[i][counter] = Some(piece::ColouredPiece::BlackKing);
+                        counter += 1;
+                    }
+                    n if n.is_digit(10) => counter += n as usize - '0' as usize,
+                    _ => return None
+                }
+            }
+        }
+        Some(board)
     }
 }
 
@@ -81,6 +147,12 @@ impl Display for Board {
 
 impl Display for GameState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.board.fmt(f)
+        self.board.fmt(f)?;
+        f.write_str("Player: ")?;
+        f.write_str( match self.turn {
+            PlayerColor::White => "white",
+            PlayerColor::Black => "black",
+        })?;
+        f.write_str(" to play.\n")
     }
 }

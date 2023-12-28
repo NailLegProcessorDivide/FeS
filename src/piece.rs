@@ -20,7 +20,6 @@ pub enum Piece {
     King = 5,
 }
 
-#[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum ColouredPiece {
     WhitePawn = 0,
