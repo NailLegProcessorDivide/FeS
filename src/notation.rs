@@ -2,7 +2,7 @@ use regex::Regex;
 
 use crate::piece::Piece;
 
-enum AlgebraicPosition {
+pub enum AlgebraicPosition {
     Square(u8, u8),
     Piece(Piece),
     RankPiece(u8, Piece),
@@ -112,7 +112,6 @@ pub fn str_to_algebraic(inp: &str) -> Option<AlgebraicMove> {
                     let (r, f) = parse_square(sqr.as_str())?;
                     Promotion(Piece(Piece::Pawn), Square(r, f), parse_piece_letter(promo.as_str().chars().nth(2)?)?)
                 }
-                _ => panic!("unkown move \"{inp}\"")
             }
         }
         else {

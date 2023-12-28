@@ -38,8 +38,7 @@ pub struct PGNFileReader<'a, Reader: StreamingIterator<Item = str>> {
 }
 
 pub struct PGNChessGame {
-    //moves: Vec<AlgebraicMove>,
-    moves: String,
+    pub moves: Vec<AlgebraicMove>,
     pub meta: HashMap<String, String>,
 }
 
@@ -78,6 +77,6 @@ impl<'a, T: StreamingIterator<Item = str>> Iterator for PGNFileReader<'a, T> {
             }
         }
 
-        Some(PGNChessGame{moves: "".to_string(), meta})
+        Some(PGNChessGame{moves, meta})
     }
 }

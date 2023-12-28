@@ -104,7 +104,7 @@ impl GameState {
             "b" => PlayerColor::Black,
             _ => return None
         };
-        
+
         let castle_rights = input_parts.next()?;
         let white_ks_castle = castle_rights.contains('K');
         let white_qs_castle = castle_rights.contains('Q');
@@ -148,11 +148,18 @@ impl Display for Board {
 impl Display for GameState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.board.fmt(f)?;
+        let mut castle_rights = "".to_string();
+        if self.white_ks_castle {castle_rights += "K"}
+        if self.white_qs_castle {castle_rights += "Q"}
+        if self.black_ks_castle {castle_rights += "k"}
+        if self.black_qs_castle {castle_rights += "q"}
+        f.write_str(&format!("Castle rights: {castle_rights}\n"))?;
+        f.write_str(&format!("ep: {:?}", self.enpasont_col))?;
         f.write_str("Player: ")?;
         f.write_str( match self.turn {
             PlayerColor::White => "white",
             PlayerColor::Black => "black",
         })?;
-        f.write_str(" to play.\n")
+        f.write_str(" to play.")
     }
 }
