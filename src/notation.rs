@@ -1,4 +1,5 @@
 use regex::Regex;
+use lazy_static::lazy_static;
 
 use crate::piece::Piece;
 
@@ -74,17 +75,38 @@ pub const fn parse_piece_letter(inp: char) -> Option<Piece> {
 use AlgebraicMove::*;
 use AlgebraicPosition::*;
 
+lazy_static!{
+    static ref ALG_OPT_PARSE: Regex = Regex::new(r"([NBRQK])?x?([a-h][1-8])(=[BNRQ])?").unwrap();
+    static ref ALG_PARSE: Regex = Regex::new(r"([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(=[BNRQ])?").unwrap();
+}
+
 pub fn str_to_algebraic(inp: &str) -> Option<AlgebraicMove> {
     let inp = inp.trim();
-    let re = Regex::new(r"([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(=[BNRQ])?#?\+?").ok()?;
     Some(
-        if inp == "O-O" {
-            AlgebraicMove::KSCastle
-        }
-        else if inp == "O-O-O" {
+        if inp.starts_with("O-O-O") {
             AlgebraicMove::QSCastle
         }
-        else if let Some(caps) = re.captures(inp) {
+        else if inp.starts_with("O-O") {
+            AlgebraicMove::KSCastle
+        }
+        else if let Some(caps) = ALG_OPT_PARSE.captures(inp) {
+            let moving_piece_type = match caps.get(1) {
+                None => Piece::Pawn,
+                Some(piece) => parse_piece_letter(piece.as_str().chars().next()?)?
+            };
+            match (caps.get(2)?, caps.get(3)) {
+                (sqr, None) => {
+                    let (r, f) = parse_square(sqr.as_str())?;
+                    Move(Piece(moving_piece_type), Square(r, f))
+                }
+                (sqr, Some(promo)) => {
+                    assert!(caps.get(1).is_none());
+                    let (r, f) = parse_square(sqr.as_str())?;
+                    Promotion(Piece(Piece::Pawn), Square(r, f), parse_piece_letter(promo.as_str().chars().nth(2)?)?)
+                }
+            }
+        }
+        else if let Some(caps) = ALG_PARSE.captures(inp) {
             let moving_piece_type = match caps.get(1) {
                 None => Piece::Pawn,
                 Some(piece) => parse_piece_letter(piece.as_str().chars().next()?)?

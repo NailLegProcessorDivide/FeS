@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use lazy_static::lazy_static;
 use regex::Regex;
 use streaming_iterator::StreamingIterator;
 
@@ -46,6 +47,10 @@ pub fn read_pgn_file<'a, Reader: StreamingIterator<Item = str>>(reader: &'a mut 
     PGNFileReader{reader}
 }
 
+lazy_static!{
+    static ref MOVE_MATCH: Regex = Regex::new(r"([0-9]+)\. ?([1-8xa-hBNRQKO\-\+#]+) (\{[^\}]*\})? ?([0-9]+\.\.\.)? ?([1-8xa-hBNRQKO\-\+#]+ )?").unwrap();
+}
+
 impl<'a, T: StreamingIterator<Item = str>> Iterator for PGNFileReader<'a, T> {
     type Item = PGNChessGame;
 
@@ -67,9 +72,8 @@ impl<'a, T: StreamingIterator<Item = str>> Iterator for PGNFileReader<'a, T> {
                 false
             }
         }{}
-        let move_match = Regex::new(r"([0-9]+)\. ?([1-8xa-hBNRQKO\-\+#]+) (\{[^\}]*\})? ?([0-9]+\.\.\.)? ?([1-8xa-hBNRQKO\-\+#]+ )?(\{[^\}]*\})?").unwrap();
         let mut moves = Vec::new();
-        for i in move_match.captures_iter(self.reader.get()?) {
+        for i in MOVE_MATCH.captures_iter(self.reader.get()?) {
             let white_move = i.get(2).unwrap().as_str();
             moves.push(notation::str_to_algebraic(white_move).unwrap());
             if let Some(mov) = i.get(5) {
