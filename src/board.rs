@@ -37,65 +37,33 @@ impl Board {
     pub fn new() -> Self{
         Self {pieces: [[None; 8]; 8]}
     }
-    pub fn from_fen(input: &str) -> Option<Self>{
+    pub fn from_fen(input: &str) -> Option<Self> {
         let mut board = Self {pieces: [[None; 8]; 8]};
         for (i, line) in input.split('/').enumerate() {
-            if i >= 8 {return None};
+            if i >= 8 { return None; }
             let mut counter = 0;
             for c in line.chars() {
-                if counter > 8 {return None}
-                match c {
-                    'P' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::WhitePawn);
-                        counter += 1;
-                    }
-                    'N' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::WhiteKnight);
-                        counter += 1;
-                    }
-                    'B' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::WhiteBishop);
-                        counter += 1;
-                    }
-                    'R' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::WhiteRook);
-                        counter += 1;
-                    }
-                    'Q' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::WhiteQueen);
-                        counter += 1;
-                    }
-                    'K' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::WhiteKing);
-                        counter += 1;
-                    }
-                    'p' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::BlackPawn);
-                        counter += 1;
-                    }
-                    'n' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::BlackKnight);
-                        counter += 1;
-                    }
-                    'b' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::BlackBishop);
-                        counter += 1;
-                    }
-                    'r' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::BlackRook);
-                        counter += 1;
-                    }
-                    'q' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::BlackQueen);
-                        counter += 1;
-                    }
-                    'k' => {
-                        board.pieces[i][counter] = Some(piece::ColouredPiece::BlackKing);
-                        counter += 1;
-                    }
-                    n if n.is_digit(10) => counter += n as usize - '0' as usize,
-                    _ => return None
-                }
+                if counter > 8 { return None; }
+                if c.is_digit(10) {
+                    counter += c as usize - '0' as usize;
+                } else {
+                    board.pieces[i][counter] = match c {
+                        'P' => Some(piece::ColouredPiece::WhitePawn),
+                        'N' => Some(piece::ColouredPiece::WhiteKnight),
+                        'B' => Some(piece::ColouredPiece::WhiteBishop),
+                        'R' => Some(piece::ColouredPiece::WhiteRook),
+                        'Q' => Some(piece::ColouredPiece::WhiteQueen),
+                        'K' => Some(piece::ColouredPiece::WhiteKing),
+                        'p' => Some(piece::ColouredPiece::BlackPawn),
+                        'n' => Some(piece::ColouredPiece::BlackKnight),
+                        'b' => Some(piece::ColouredPiece::BlackBishop),
+                        'r' => Some(piece::ColouredPiece::BlackRook),
+                        'q' => Some(piece::ColouredPiece::BlackQueen),
+                        'k' => Some(piece::ColouredPiece::BlackKing),
+                        _ => return None
+                    };
+                    counter += 1;
+                }               
             }
         }
         Some(board)
