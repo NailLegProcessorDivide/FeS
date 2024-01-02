@@ -4,8 +4,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use streaming_iterator::StreamingIterator;
 
-use crate::notation::{AlgebraicMove, self};
-
+use crate::notation::{self, AlgebraicMove};
 
 pub struct StrIter<'a, Reader: Iterator<Item = String>> {
     line: Option<String>,
@@ -14,7 +13,10 @@ pub struct StrIter<'a, Reader: Iterator<Item = String>> {
 
 impl<'a, T: Iterator<Item = String>> StrIter<'a, T> {
     pub fn new(itr: &'a mut T) -> Self {
-        StrIter {line: None, reader: itr}
+        StrIter {
+            line: None,
+            reader: itr,
+        }
     }
 }
 
@@ -35,7 +37,6 @@ impl<'a, T: Iterator<Item = String>> StreamingIterator for StrIter<'a, T> {
 
 pub struct PGNFileReader<'a, Reader: StreamingIterator<Item = str>> {
     reader: &'a mut Reader,
-
 }
 
 pub struct PGNChessGame {
@@ -43,11 +44,13 @@ pub struct PGNChessGame {
     pub meta: HashMap<String, String>,
 }
 
-pub fn read_pgn_file<'a, Reader: StreamingIterator<Item = str>>(reader: &'a mut Reader) -> PGNFileReader<'a, Reader> {
-    PGNFileReader{reader}
+pub fn read_pgn_file<'a, Reader: StreamingIterator<Item = str>>(
+    reader: &'a mut Reader,
+) -> PGNFileReader<'a, Reader> {
+    PGNFileReader { reader }
 }
 
-lazy_static!{
+lazy_static! {
     static ref MOVE_MATCH: Regex = Regex::new(r"([0-9]+)\. ?([1-8xa-hBNRQKO\-\+#]+) (\{[^\}]*\})? ?([0-9]+\.\.\.)? ?([1-8xa-hBNRQKO\-\+#]+ )?").unwrap();
 }
 
@@ -64,14 +67,12 @@ impl<'a, T: StreamingIterator<Item = str>> Iterator for PGNFileReader<'a, T> {
                 let (key, val) = line.split_once(" ")?;
                 meta.insert(key.to_string(), val.to_string());
                 true
-            }
-            else if line == "" {
+            } else if line == "" {
                 true
-            }
-            else {
+            } else {
                 false
             }
-        }{}
+        } {}
         let mut moves = Vec::new();
         for i in MOVE_MATCH.captures_iter(self.reader.get()?) {
             let white_move = i.get(2).unwrap().as_str();
@@ -81,6 +82,6 @@ impl<'a, T: StreamingIterator<Item = str>> Iterator for PGNFileReader<'a, T> {
             }
         }
 
-        Some(PGNChessGame{moves, meta})
+        Some(PGNChessGame { moves, meta })
     }
 }

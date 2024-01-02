@@ -1,5 +1,5 @@
-use regex::Regex;
 use lazy_static::lazy_static;
+use regex::Regex;
 
 use crate::piece::Piece;
 
@@ -68,76 +68,76 @@ pub const fn parse_piece_letter(inp: char) -> Option<Piece> {
         'R' => Some(Piece::Rook),
         'Q' => Some(Piece::Queen),
         'K' => Some(Piece::King),
-        _ => None
+        _ => None,
     }
 }
 
 use AlgebraicMove::*;
 use AlgebraicPosition::*;
 
-lazy_static!{
+lazy_static! {
     static ref ALG_OPT_PARSE: Regex = Regex::new(r"([NBRQK])?x?([a-h][1-8])(=[BNRQ])?").unwrap();
-    static ref ALG_PARSE: Regex = Regex::new(r"([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(=[BNRQ])?").unwrap();
+    static ref ALG_PARSE: Regex =
+        Regex::new(r"([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(=[BNRQ])?").unwrap();
 }
 
 pub fn str_to_algebraic(inp: &str) -> Option<AlgebraicMove> {
     let inp = inp.trim();
-    Some(
-        if inp.starts_with("O-O-O") {
-            AlgebraicMove::QSCastle
-        }
-        else if inp.starts_with("O-O") {
-            AlgebraicMove::KSCastle
-        }
-        else if let Some(caps) = ALG_OPT_PARSE.captures(inp) {
-            let moving_piece_type = match caps.get(1) {
-                None => Piece::Pawn,
-                Some(piece) => parse_piece_letter(piece.as_str().chars().next()?)?
-            };
-            match (caps.get(2)?, caps.get(3)) {
-                (sqr, None) => {
-                    let (r, f) = parse_square(sqr.as_str())?;
-                    Move(Piece(moving_piece_type), Square(r, f))
-                }
-                (sqr, Some(promo)) => {
-                    assert!(caps.get(1).is_none());
-                    let (r, f) = parse_square(sqr.as_str())?;
-                    Promotion(Piece(Piece::Pawn), Square(r, f), parse_piece_letter(promo.as_str().chars().nth(2)?)?)
-                }
+    Some(if inp.starts_with("O-O-O") {
+        AlgebraicMove::QSCastle
+    } else if inp.starts_with("O-O") {
+        AlgebraicMove::KSCastle
+    } else if let Some(caps) = ALG_OPT_PARSE.captures(inp) {
+        let moving_piece_type = match caps.get(1) {
+            None => Piece::Pawn,
+            Some(piece) => parse_piece_letter(piece.as_str().chars().next()?)?,
+        };
+        match (caps.get(2)?, caps.get(3)) {
+            (sqr, None) => {
+                let (r, f) = parse_square(sqr.as_str())?;
+                Move(Piece(moving_piece_type), Square(r, f))
+            }
+            (sqr, Some(promo)) => {
+                assert!(caps.get(1).is_none());
+                let (r, f) = parse_square(sqr.as_str())?;
+                Promotion(
+                    Piece(Piece::Pawn),
+                    Square(r, f),
+                    parse_piece_letter(promo.as_str().chars().nth(2)?)?,
+                )
             }
         }
-        else if let Some(caps) = ALG_PARSE.captures(inp) {
-            let moving_piece_type = match caps.get(1) {
-                None => Piece::Pawn,
-                Some(piece) => parse_piece_letter(piece.as_str().chars().next()?)?
-            };
-            let moving_piece = match (caps.get(2), caps.get(3)) {
-                (Some(f), Some(r)) => SquarePiece(
-                                        parse_rank(r.as_str())?,
-                                        parse_file(f.as_str())?,
-                                        moving_piece_type),
-                (Some(f), None) => FilePiece(
-                                        parse_file(f.as_str())?,
-                                        moving_piece_type),
-                (None, Some(r)) => RankPiece(
-                                        parse_rank(r.as_str())?,
-                                        moving_piece_type),
-                (None, None) => Piece(moving_piece_type),
-            };
-            match (caps.get(4)?, caps.get(5)) {
-                (sqr, None) => {
-                    let (r, f) = parse_square(sqr.as_str())?;
-                    Move(moving_piece, Square(r, f))
-                }
-                (sqr, Some(promo)) => {
-                    assert!(caps.get(1).is_none());
-                    let (r, f) = parse_square(sqr.as_str())?;
-                    Promotion(Piece(Piece::Pawn), Square(r, f), parse_piece_letter(promo.as_str().chars().nth(2)?)?)
-                }
+    } else if let Some(caps) = ALG_PARSE.captures(inp) {
+        let moving_piece_type = match caps.get(1) {
+            None => Piece::Pawn,
+            Some(piece) => parse_piece_letter(piece.as_str().chars().next()?)?,
+        };
+        let moving_piece = match (caps.get(2), caps.get(3)) {
+            (Some(f), Some(r)) => SquarePiece(
+                parse_rank(r.as_str())?,
+                parse_file(f.as_str())?,
+                moving_piece_type,
+            ),
+            (Some(f), None) => FilePiece(parse_file(f.as_str())?, moving_piece_type),
+            (None, Some(r)) => RankPiece(parse_rank(r.as_str())?, moving_piece_type),
+            (None, None) => Piece(moving_piece_type),
+        };
+        match (caps.get(4)?, caps.get(5)) {
+            (sqr, None) => {
+                let (r, f) = parse_square(sqr.as_str())?;
+                Move(moving_piece, Square(r, f))
+            }
+            (sqr, Some(promo)) => {
+                assert!(caps.get(1).is_none());
+                let (r, f) = parse_square(sqr.as_str())?;
+                Promotion(
+                    Piece(Piece::Pawn),
+                    Square(r, f),
+                    parse_piece_letter(promo.as_str().chars().nth(2)?)?,
+                )
             }
         }
-        else {
-            panic!("unkown move \"{inp}\"")
-        }
-    )
+    } else {
+        panic!("unkown move \"{inp}\"")
+    })
 }
