@@ -206,7 +206,7 @@ impl ChessGame for GameState {
         if mov.from == 0 || mov.to == 0 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
             self.meta.white_qs_castle = false
         }
-        if mov.from == 4 || mov.to == 4 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
+        if mov.from == 7 || mov.to == 7 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
             self.meta.white_ks_castle = false
         }
         if mov.from == 56 || mov.to == 56 || mov.from == 60 { // mov to 60 without moving from 60 would be taking the king

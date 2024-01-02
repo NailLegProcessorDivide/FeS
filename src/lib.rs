@@ -74,5 +74,49 @@ mod tests {
         assert_eq!(perft(&mut gs, 3), 2812);
         assert_eq!(perft(&mut gs, 4), 43238);
         assert_eq!(perft(&mut gs, 5), 674624);
+        assert_eq!(perft(&mut gs, 6), 11030083);
+        assert_eq!(perft(&mut gs, 7), 178633661);
+    }
+
+    #[test]
+    fn perft_pos4() {
+        let mut gs = GameState::from_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1").unwrap();
+        assert_eq!(perft(&mut gs, 1), 6);
+        assert_eq!(perft(&mut gs, 2), 264);
+        assert_eq!(perft(&mut gs, 3), 9467);
+        assert_eq!(perft(&mut gs, 4), 422333);
+        assert_eq!(perft(&mut gs, 5), 15833292);
+        assert_eq!(perft(&mut gs, 6), 706045033);
+    }
+
+    #[test]
+    fn perft_pos4b() {
+        let mut gs = GameState::from_fen("r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1").unwrap();
+        assert_eq!(perft(&mut gs, 1), 6);
+        assert_eq!(perft(&mut gs, 2), 264);
+        assert_eq!(perft(&mut gs, 3), 9467);
+        assert_eq!(perft(&mut gs, 4), 422333);
+        assert_eq!(perft(&mut gs, 5), 15833292);
+        assert_eq!(perft(&mut gs, 6), 706045033);
+    }
+
+    #[test]
+    fn perft_pos5() {
+        let mut gs = GameState::from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8").unwrap();
+        assert_eq!(perft(&mut gs, 1), 44);
+        assert_eq!(perft(&mut gs, 2), 1486);
+        assert_eq!(perft(&mut gs, 3), 62379);
+        assert_eq!(perft(&mut gs, 4), 2103487);
+        assert_eq!(perft(&mut gs, 5), 89941194);
+    }
+
+    #[test]
+    fn perft_pos6() {
+        let mut gs = GameState::from_fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10").unwrap();
+        assert_eq!(perft(&mut gs, 1), 46);
+        assert_eq!(perft(&mut gs, 2), 2079);
+        assert_eq!(perft(&mut gs, 3), 89890);
+        assert_eq!(perft(&mut gs, 4), 3894594);
+        assert_eq!(perft(&mut gs, 5), 164075551);
     }
 }
