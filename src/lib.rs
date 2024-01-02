@@ -6,7 +6,10 @@ pub mod pgn;
 pub mod piece;
 
 pub fn perft(gs: &mut GameState, limit: usize) -> usize {
-    if limit == 1 {
+    if limit == 0 {
+        1
+    }
+    else if limit == 1 {
         gs.moves().len()
     }
     else {
@@ -21,9 +24,26 @@ pub fn perft(gs: &mut GameState, limit: usize) -> usize {
     }
 }
 
+pub fn perft_div(gs: &mut GameState, limit: usize) -> usize {
+    let mut total = 0;
+    for mov in gs.moves().iter() {
+        gs.move_det(mov);
+        let c = perft(gs, limit - 1);
+        total += c;
+        let ox = ('a' as u8 + (mov.from & 7)) as char;
+        let oy = ('1' as u8 + (mov.from >> 3)) as char;
+        let nx = ('a' as u8 + (mov.to & 7)) as char;
+        let ny = ('1' as u8 + (mov.to >> 3)) as char;
+        println!("{}{}{}{}: {}", ox, oy, nx, ny, c);
+        gs.unmove_det(mov);
+    }
+    println!("total: {total}");
+    total
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{board::{GameState, ChessGame}, perft};
+    use crate::{board::{GameState, ChessGame}, perft, perft_div};
     // game boards from https://www.chessprogramming.org/Perft_Results
     #[test]
     fn perft_base() {

@@ -565,26 +565,26 @@ impl GameState {
                 }
             }
         }
-        if self.meta.white_ks_castle && !black_moves.iter().any(|mov| mov.to >=4 && mov.to<= 7) &&
+        if self.meta.white_ks_castle && !black_moves.iter().any(|mov| mov.to >=4 && mov.to <= 6) &&
             !self.board.pieces[1][4..=7].iter().any(|p| *p == Some(BlackPawn)) &&
             !self.board.pieces[0][5..=6].iter().any(|p| p.is_some())  {
             FesMoveDet::push_basic(&mut white_moves, 4, 6, &self.meta);
         }
-        if self.meta.white_qs_castle && !black_moves.iter().any(|mov| mov.to <= 4) &&
-            !self.board.pieces[1][0..=4].iter().any(|p| *p == Some(BlackPawn)) &&
+        if self.meta.white_qs_castle && !black_moves.iter().any(|mov| mov.to >= 2 && mov.to <= 4) &&
+            !self.board.pieces[1][1..=4].iter().any(|p| *p == Some(BlackPawn)) &&
             !self.board.pieces[0][1..=3].iter().any(|p| p.is_some())  {
-            FesMoveDet::push_basic(&mut white_moves, 4, 1, &self.meta);
+            FesMoveDet::push_basic(&mut white_moves, 4, 2, &self.meta);
         }
 
-        if self.meta.black_ks_castle && !white_moves.iter().any(|mov| mov.to >=60) &&
-            !self.board.pieces[6][4..=7].iter().any(|p| *p == Some(BlackPawn)) &&
+        if self.meta.black_ks_castle && !white_moves.iter().any(|mov| mov.to >=60 && mov.to <= 62) &&
+            !self.board.pieces[6][4..=7].iter().any(|p| *p == Some(WhitePawn)) &&
             !self.board.pieces[7][5..=6].iter().any(|p| p.is_some())  {
-            FesMoveDet::push_basic(&mut black_moves, 4, 6, &self.meta);
+            FesMoveDet::push_basic(&mut black_moves, 60, 62, &self.meta);
         }
-        if self.meta.black_qs_castle && !white_moves.iter().any(|mov| mov.to >= 56 && mov.to <= 60) &&
-            !self.board.pieces[6][0..=4].iter().any(|p| *p == Some(BlackPawn)) &&
+        if self.meta.black_qs_castle && !white_moves.iter().any(|mov| mov.to >= 58 && mov.to <= 60) &&
+            !self.board.pieces[6][1..=4].iter().any(|p| *p == Some(WhitePawn)) &&
             !self.board.pieces[7][1..=3].iter().any(|p| p.is_some())  {
-            FesMoveDet::push_basic(&mut black_moves, 4, 1, &self.meta);
+            FesMoveDet::push_basic(&mut black_moves, 60, 58, &self.meta);
         }
 
         match self.turn {
