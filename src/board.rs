@@ -207,62 +207,61 @@ impl ChessGame for GameState {
                 White => self.turn = Black,
                 Black => self.turn = White,
             }
-            return;
-        } 
-      
-        let (fx, fy) = unpack_index(mov.from);
-        let (tx, ty) = unpack_index(mov.to);
-        
-        if mov.from == 0 || mov.to == 0 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
-            self.meta.white_qs_castle = false
-        }
-        if mov.from == 7 || mov.to == 7 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
-            self.meta.white_ks_castle = false
-        }
-        if mov.from == 56 || mov.to == 56 || mov.from == 60 { // mov to 60 without moving from 60 would be taking the king
-            self.meta.black_qs_castle = false
-        }
-        if mov.from == 63 || mov.to == 63 || mov.from == 60 { // mov to 60 without moving from 60 would be taking the king
-            self.meta.black_ks_castle = false
-        }
-        if self.board.pieces[fy][fx].unwrap().piece() == Piece::Pawn &&
-            ((fy == 1 && ty == 3) || (fy == 6 && ty == 4)) {
-            self.meta.enpasant_col = Some(fx as u8);
-        }
-        else {
-            self.meta.enpasant_col = None;
-        }
-        //unwrap should be fine as move should be from a piece
-        if self.board.pieces[fy][fx].unwrap().piece() == Piece::King {
-            if fx == 4 && tx == 6 {
-                debug_assert!(fy == 0 || fy == 7);
-                self.board.pieces[fy][5] = Some(ColouredPiece::from_parts(self.turn, Piece::Rook));
-                self.board.pieces[fy][7] = None;
+        } else {
+            let (fx, fy) = unpack_index(mov.from);
+            let (tx, ty) = unpack_index(mov.to);
+            
+            if mov.from == 0 || mov.to == 0 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
+                self.meta.white_qs_castle = false
             }
-            else if fx == 4 && tx == 2 {
-                debug_assert!(fy == 0 || fy == 7);
-                self.board.pieces[fy][3] = Some(ColouredPiece::from_parts(self.turn, Piece::Rook));
-                self.board.pieces[fy][0] = None;
+            if mov.from == 7 || mov.to == 7 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
+                self.meta.white_ks_castle = false
             }
-        }
-        if mov.enpas {
-            if ty == 2 {
-                self.board.pieces[3][tx] = None;
+            if mov.from == 56 || mov.to == 56 || mov.from == 60 { // mov to 60 without moving from 60 would be taking the king
+                self.meta.black_qs_castle = false
             }
-            if ty == 5 {
-                self.board.pieces[4][tx] = None;
+            if mov.from == 63 || mov.to == 63 || mov.from == 60 { // mov to 60 without moving from 60 would be taking the king
+                self.meta.black_ks_castle = false
             }
-        }
-        self.board.pieces[ty][tx] = match mov.promo {
-            Some(p) => Some(ColouredPiece::from_parts(self.turn, p)),
-            None => self.board.pieces[fy][fx],
-        };
-        assert!(self.board.pieces[fy][fx].is_some());
-        assert!(self.board.pieces[ty][tx].is_some());
-        self.board.pieces[fy][fx] = None;
-        match self.turn {
-            White => self.turn = Black,
-            Black => self.turn = White,
+            if self.board.pieces[fy][fx].unwrap().piece() == Piece::Pawn &&
+                ((fy == 1 && ty == 3) || (fy == 6 && ty == 4)) {
+                self.meta.enpasant_col = Some(fx as u8);
+            }
+            else {
+                self.meta.enpasant_col = None;
+            }
+            //unwrap should be fine as move should be from a piece
+            if self.board.pieces[fy][fx].unwrap().piece() == Piece::King {
+                if fx == 4 && tx == 6 {
+                    debug_assert!(fy == 0 || fy == 7);
+                    self.board.pieces[fy][5] = Some(ColouredPiece::from_parts(self.turn, Piece::Rook));
+                    self.board.pieces[fy][7] = None;
+                }
+                else if fx == 4 && tx == 2 {
+                    debug_assert!(fy == 0 || fy == 7);
+                    self.board.pieces[fy][3] = Some(ColouredPiece::from_parts(self.turn, Piece::Rook));
+                    self.board.pieces[fy][0] = None;
+                }
+            }
+            if mov.enpas {
+                if ty == 2 {
+                    self.board.pieces[3][tx] = None;
+                }
+                if ty == 5 {
+                    self.board.pieces[4][tx] = None;
+                }
+            }
+            self.board.pieces[ty][tx] = match mov.promo {
+                Some(p) => Some(ColouredPiece::from_parts(self.turn, p)),
+                None => self.board.pieces[fy][fx],
+            };
+            assert!(self.board.pieces[fy][fx].is_some());
+            assert!(self.board.pieces[ty][tx].is_some());
+            self.board.pieces[fy][fx] = None;
+            match self.turn {
+                White => self.turn = Black,
+                Black => self.turn = White,
+            }
         }
         mov.clone()
     }
@@ -533,7 +532,7 @@ impl GameState {
     fn validate_move(&mut self, mov: &FesMoveDet) -> bool {
         self.do_move(mov);
         let prelim_moves = self.get_preliminary_moves();
-        self.unmove_det(mov);
+        self.unmove(mov);
         return !prelim_moves.iter().any(|mov| if let Some(Piece::King) = mov.take {true} else {false});
     }
 }
