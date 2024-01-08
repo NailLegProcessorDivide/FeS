@@ -302,8 +302,9 @@ impl ChessGame for GameState {
     fn moves(&mut self) -> Vec<FesMoveDet> {
         let moves = self.get_preliminary_moves();
         let mut moves: Vec<_>= moves.into_iter().filter(|mov| self.validate_move(mov)).collect();
-  
-        for i in moves.len() - 2 .. moves.len() - 1 {
+
+        let mut i = moves.len() - 1;
+        for _ in 0 .. 2 {
             if i >= moves.len() { break; }
             let (fx, fy) = unpack_index(moves[i].from);
             let (tx, _)  = unpack_index(moves[i].to);
@@ -313,6 +314,7 @@ impl ChessGame for GameState {
                    dist == 2 && !moves.contains(&(FesMoveDet {from: moves[i].from, to: pack(fx-1,fy) as u8, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) {
                     moves.remove(i);
                 }
+                i -= 1;
             }
         }
         moves
