@@ -62,7 +62,7 @@ mod tests {
         assert_eq!(perft(&mut gs, 1), 48);
         assert_eq!(perft(&mut gs, 2), 2039);
         assert_eq!(perft(&mut gs, 3), 97862);
-        // assert_eq!(perft(&mut gs, 4), 4085603);
+        assert_eq!(perft(&mut gs, 4), 4085603);
         // assert_eq!(perft(&mut gs, 5), 193690690);
     }
 

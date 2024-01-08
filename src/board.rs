@@ -201,8 +201,17 @@ impl ChessGame for GameState {
     }
 
     fn move_det(&mut self, mov: &FesMoveDet) {
+        if mov.from == mov.to {
+            match self.turn {
+                White => self.turn = Black,
+                Black => self.turn = White,
+            }
+            return;
+        } 
+        
         let (fx, fy) = unpack_index(mov.from);
         let (tx, ty) = unpack_index(mov.to);
+        
         if mov.from == 0 || mov.to == 0 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
             self.meta.white_qs_castle = false
         }
@@ -257,12 +266,16 @@ impl ChessGame for GameState {
     }
 
     fn unmove_det(&mut self, mov: &FesMoveDet) {
-        let (fx, fy) = unpack_index(mov.from);
-        let (tx, ty) = unpack_index(mov.to);
         match self.turn {
             White => self.turn = Black,
             Black => self.turn = White,
         }
+
+        if mov.from == mov.to { return; }
+
+        let (fx, fy) = unpack_index(mov.from);
+        let (tx, ty) = unpack_index(mov.to);
+
         if self.board.pieces[ty][tx].is_none() {
             println!("{}", self);
             println!("{:?}", mov);
@@ -303,19 +316,23 @@ impl ChessGame for GameState {
         let moves = self.get_preliminary_moves();
         let mut moves: Vec<_>= moves.into_iter().filter(|mov| self.validate_move(mov)).collect();
 
+        let is_check = moves.is_empty() || moves.last().unwrap().from != moves.last().unwrap().to;
+        if !is_check { moves.pop(); }
+
+        // castling moves are always the last two to be added to move vector
         let mut i = moves.len() - 1;
-        for _ in 0 .. 2 {
+        for _ in 1..=2 {
             if i >= moves.len() { break; }
             let (fx, fy) = unpack_index(moves[i].from);
-            let (tx, _)  = unpack_index(moves[i].to);
             if self.board.pieces[fy][fx].unwrap().piece() == Piece::King {
-                let dist = fx as i8 - tx as i8;
-                if dist == -2 && !moves.contains(&(FesMoveDet {from: moves[i].from, to: pack(fx+1,fy) as u8, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) ||
-                   dist == 2 && !moves.contains(&(FesMoveDet {from: moves[i].from, to: pack(fx-1,fy) as u8, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) {
+                let dist = moves[i].from as i8 - moves[i].to as i8;        
+                if dist ==  2 && (is_check || !moves.contains(&FesMoveDet {from: moves[i].from, to: moves[i].to+1, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) ||
+                   dist == -2 && (is_check || !moves.contains(&FesMoveDet {from: moves[i].from, to: moves[i].to-1, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) {
+                    // if this is a castling move but the king can't move normally along the path then remove this move
                     moves.remove(i);
                 }
-                i -= 1;
             }
+            i -= 1;
         }
         moves
     }
@@ -477,7 +494,7 @@ impl GameState {
             }
         }
 
-        if self.turn == PlayerColour::White {
+        if self.turn == White {
             if self.meta.white_ks_castle && 
                 !self.board.pieces[1][4..=7].iter().any(|p| *p == Some(BlackPawn)) &&
                 !self.board.pieces[0][5..=6].iter().any(|p| p.is_some())  {
@@ -488,6 +505,7 @@ impl GameState {
                 !self.board.pieces[0][1..=3].iter().any(|p| p.is_some())  {
                 FesMoveDet::push_basic(&mut moves, 4, 2, &self.meta);
             }
+            FesMoveDet::push_basic(&mut moves, 4, 4, &self.meta); // a silly little pseudo-move for detecting check later
         } else {
             if self.meta.black_ks_castle && 
                 !self.board.pieces[6][4..=7].iter().any(|p| *p == Some(WhitePawn)) &&
@@ -499,7 +517,9 @@ impl GameState {
                 !self.board.pieces[7][1..=3].iter().any(|p| p.is_some())  {
                 FesMoveDet::push_basic(&mut moves, 60, 58, &self.meta);
             }
+            FesMoveDet::push_basic(&mut moves, 60, 60, &self.meta);
         }
+
     
         moves
     }
