@@ -1,11 +1,16 @@
-use board::{GameState, ChessGame};
+use board::GameState;
+use game::ChessGame;
+
+use crate::game::Move;
 
 pub mod board;
+pub mod bit_board;
 pub mod notation;
 pub mod pgn;
 pub mod piece;
+pub mod game;
 
-pub fn perft(gs: &mut GameState, limit: usize) -> usize {
+pub fn perft<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
     if limit == 0 {
         1
     }
@@ -16,26 +21,22 @@ pub fn perft(gs: &mut GameState, limit: usize) -> usize {
         let moves = gs.moves();
         let mut total = 0;
         for mov in moves {
-            gs.move_det(&mov);
+            let unmov = gs.do_move(&mov);
             total += perft(gs, limit - 1);
-            gs.unmove_det(&mov);
+            gs.unmove(&unmov);
         }
         total
     }
 }
 
-pub fn perft_div(gs: &mut GameState, limit: usize) -> usize {
+pub fn perft_div<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
     let mut total = 0;
     for mov in gs.moves().iter() {
-        gs.move_det(mov);
+        let unmov = gs.do_move(mov);
         let c = perft(gs, limit - 1);
         total += c;
-        let ox = ('a' as u8 + (mov.from & 7)) as char;
-        let oy = ('1' as u8 + (mov.from >> 3)) as char;
-        let nx = ('a' as u8 + (mov.to & 7)) as char;
-        let ny = ('1' as u8 + (mov.to >> 3)) as char;
-        println!("{}{}{}{}: {}", ox, oy, nx, ny, c);
-        gs.unmove_det(mov);
+        println!("{}: {}", mov.to_uci(), c);
+        gs.unmove(&unmov);
     }
     println!("total: {total}");
     total
@@ -43,7 +44,7 @@ pub fn perft_div(gs: &mut GameState, limit: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{board::{GameState, ChessGame}, perft, perft_div};
+    use crate::{board::GameState, perft, game::ChessGame};
     // game boards from https://www.chessprogramming.org/Perft_Results
     #[test]
     fn perft_base() {

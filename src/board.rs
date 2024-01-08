@@ -1,26 +1,6 @@
 use std::fmt::{Display, Write};
 
-use crate::{piece::{self, PlayerColour, Piece, ColouredPiece}, notation::AlgebraicMove};
-
-pub trait ChessGame: Sized {
-    fn new() -> Self;
-    fn from_fen(fen: &str) -> Option<Self>;
-    fn move_alg(&mut self, mov: &AlgebraicMove);
-    fn moves(&mut self) -> Vec<FesMoveDet>;
-    fn move_det(&mut self, mov: &FesMoveDet);
-    fn unmove_det(&mut self, mov: &FesMoveDet);
-}
-
-
-pub struct FesMove {
-    pub from: u8,
-    /// top 2 bits = promotion type
-    /// 00 queen
-    /// 01 rook
-    /// 10 bishop
-    /// 11 knight
-    pub to: u8
-}
+use crate::{piece::{self, PlayerColour, Piece, ColouredPiece}, notation::AlgebraicMove, game::{ChessGame, Move}};
 
 #[derive(Clone, PartialEq, Debug)]
 struct GSMetaData {
@@ -37,7 +17,7 @@ struct GSMetaData {
 
 /// Fes Move Detailed
 /// move containing unpacked promotion and taking info
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FesMoveDet {
     pub from: u8,
     pub to: u8,
@@ -46,6 +26,7 @@ pub struct FesMoveDet {
     enpas: bool,
     meta: GSMetaData,
 }
+
 impl FesMoveDet {
     fn push_basic(vec: &mut Vec<FesMoveDet>, from: usize, to: usize, meta: &GSMetaData) {
         vec.push(FesMoveDet { from: from as u8, to: to as u8, promo: None, take: None, enpas: false, meta: meta.clone() })
@@ -59,6 +40,22 @@ impl FesMoveDet {
     fn push_enpas(vec: &mut Vec<FesMoveDet>, from: usize, to: usize, meta: &GSMetaData) {
         //takes none because the square it goes to isnt a piece (weird design IK)
         vec.push(FesMoveDet { from: from as u8, to: to as u8, promo: None, take: None, enpas: true, meta: meta.clone() })
+    }
+}
+
+impl Display for FesMoveDet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl Move for FesMoveDet {
+    fn to_uci(&self) -> String {
+        let ox = ('a' as u8 + (self.from & 7) as u8) as char;
+        let oy = ('1' as u8 + (self.from >> 3) as u8) as char;
+        let nx = ('a' as u8 + (self.to & 7) as u8) as char;
+        let ny = ('1' as u8 + (self.to >> 3) as u8) as char;
+        format!("{ox}{oy}{nx}{ny}")
     }
 }
 
@@ -162,6 +159,10 @@ const fn pack(x: usize, y: usize) -> usize {
 
 impl ChessGame for GameState {
 
+    type Move = FesMoveDet;
+
+    type UnMove = FesMoveDet;
+
     fn new() -> Self {
         Self::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
     }
@@ -196,11 +197,11 @@ impl ChessGame for GameState {
         Some(GameState { turn, board, meta })
     }
 
-    fn move_alg(&mut self, _mov: &AlgebraicMove) {
+    fn decode_alg(&mut self, _mov: &AlgebraicMove) -> Self::Move {
         todo!()
     }
 
-    fn move_det(&mut self, mov: &FesMoveDet) {
+    fn do_move(&mut self, mov: &Self::Move) -> Self::UnMove{
         if mov.from == mov.to {
             match self.turn {
                 White => self.turn = Black,
@@ -208,7 +209,7 @@ impl ChessGame for GameState {
             }
             return;
         } 
-        
+      
         let (fx, fy) = unpack_index(mov.from);
         let (tx, ty) = unpack_index(mov.to);
         
@@ -263,9 +264,10 @@ impl ChessGame for GameState {
             White => self.turn = Black,
             Black => self.turn = White,
         }
+        mov.clone()
     }
 
-    fn unmove_det(&mut self, mov: &FesMoveDet) {
+    fn unmove(&mut self, mov: &Self::UnMove) {
         match self.turn {
             White => self.turn = Black,
             Black => self.turn = White,
@@ -312,7 +314,7 @@ impl ChessGame for GameState {
         self.meta = mov.meta.clone();
     }
 
-    fn moves(&mut self) -> Vec<FesMoveDet> {
+    fn moves(&mut self) -> Vec<Self::Move> {
         let moves = self.get_preliminary_moves();
         let mut moves: Vec<_>= moves.into_iter().filter(|mov| self.validate_move(mov)).collect();
 
@@ -335,6 +337,10 @@ impl ChessGame for GameState {
             i -= 1;
         }
         moves
+    }
+
+    fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
+        todo!()
     }
 }
 
@@ -525,7 +531,7 @@ impl GameState {
     }
 
     fn validate_move(&mut self, mov: &FesMoveDet) -> bool {
-        self.move_det(mov);
+        self.do_move(mov);
         let prelim_moves = self.get_preliminary_moves();
         self.unmove_det(mov);
         return !prelim_moves.iter().any(|mov| if let Some(Piece::King) = mov.take {true} else {false});
