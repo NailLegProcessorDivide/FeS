@@ -30,13 +30,18 @@ struct BBMove {
 /// ?110 => castleable rook
 /// ?111 => king
 
-struct BitBoard {
+pub struct BitBoard {
     board: [u64; 4]
 }
 
 impl BitBoard {
+    const RIGHT_SIDE: u64 = 0x0101010101010101;
+    const LEFT_SIDE: u64 = 0x8080808080808080;
+    const RIGHT2_SIDE: u64 = Self::RIGHT_SIDE | (Self::RIGHT_SIDE << 1);
+    const LEFT2_SIDE: u64 = Self::LEFT_SIDE | (Self::LEFT_SIDE << 1);
 
     /// set cell `square` to an empty cell
+    #[inline(always)]
     pub fn clear(&mut self, square: u8) {
         for line in self.board.iter_mut() {
             *line &= !(1 << square);
@@ -44,6 +49,7 @@ impl BitBoard {
     }
 
     /// copy cell `old` to cell `new`
+    #[inline(always)]
     pub fn dupe(&mut self, old: u8, new: u8) {
         for line in self.board.iter_mut() {
             let tmp = (*line >> old) & 1;
@@ -54,109 +60,207 @@ impl BitBoard {
 
     /// 1 if white
     /// 0 if black or no piece
+    #[inline(always)]
     pub const fn colour_mask(&self) -> u64 {
         self.board[3]
     }
 
     /// 1 if real (exc enpasentable pawns) piece
     /// 0 if no piece
+    #[inline(always)]
     pub const fn piece_mask(&self) -> u64 {
         self.board[0] | self.board[1] | self.board[2]
     }
 
-    /// 1 if real (exc enpasentable pawns) white piece
-    /// 0 if no piece
-    pub const fn white_piece_mask(&self) -> u64 {
-        self.pawn_mask() & self.colour_mask()
-    }
-
     /// 1 if real (exc enpasentable pawns) black piece
     /// 0 if no piece
-    pub const fn black_piece_mask(&self) -> u64 {
-        self.pawn_mask() & !self.colour_mask()
-    }
-
-    /// 1 if real (exc enpasentable pawns) black piece
-    /// 0 if no piece
+    #[inline(always)]
     pub const fn side_piece_mask(&self, side: u64) -> u64 {
         self.pawn_mask() & (self.colour_mask() ^ side)
     }
 
     /// 1 if piece inc special
     /// 0 if no piece
+    #[inline(always)]
     pub const fn piece_special_mask(&self) -> u64 {
         self.board[0] | self.board[1] | self.board[2] | self.board[3]
     }
 
     /// 1 if pawn
     /// 0 if no pawn
+    #[inline(always)]
     pub const fn pawn_mask(&self) -> u64 {
         !self.board[0] & !self.board[1] & self.board[2]
-    }
-
-    /// 1 if white pawn
-    /// 0 if no white pawn
-    pub const fn white_pawn_mask(&self) -> u64 {
-        self.pawn_mask() & self.colour_mask()
-    }
-
-    /// 1 if black pawn
-    /// 0 if no black pawn
-    pub const fn black_pawn_mask(&self) -> u64 {
-        self.pawn_mask() & !self.colour_mask()
     }
 
     /// side 0 = white, u64::MAX = black
     /// 1 if side pawn
     /// 0 if no side pawn
+    #[inline(always)]
     pub const fn side_pawn_mask(&self, side: u64) -> u64 {
         self.pawn_mask() & (self.colour_mask() ^ side)
     }
 
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side pawn
+    /// 0 if no side pawn
+    #[inline(always)]
+    pub const fn pawn_attack_mask(&self, side: u64) -> u64 {
+        let pawns = self.side_pawn_mask(side);
+        let left_ls = 9 & !side;
+        let left_rs = 7 & side;
+        let right_ls = 7 & !side;
+        let right_rs = 9 & side;
+        let left_pawns = (pawns << left_ls) | (pawns >> left_rs) & !Self::RIGHT_SIDE;
+        let right_pawns = (pawns << right_ls) | (pawns >> right_rs) & !Self::LEFT_SIDE;
+        left_pawns | right_pawns
+    }
+
     /// 1 if knight
     /// 0 if no knight
+    #[inline(always)]
     pub const fn knight_mask(&self) -> u64 {
         self.board[0] & !self.board[1] & self.board[2]
-    }
-
-    /// 1 if white knight
-    /// 0 if no white knight
-    pub const fn white_knight_mask(&self) -> u64 {
-        self.knight_mask() & self.colour_mask()
-    }
-
-    /// 1 if black knight
-    /// 0 if no black knight
-    pub const fn black_knight_mask(&self) -> u64 {
-        self.knight_mask() & !self.colour_mask()
     }
 
     /// side 0 = white, u64::MAX = black
     /// 1 if side knight
     /// 0 if no side knight
+    #[inline(always)]
     pub const fn side_knight_mask(&self, side: u64) -> u64 {
         self.knight_mask() & (self.colour_mask() ^ side)
     }
 
     /// side 0 = white, u64::MAX = black
-    /// 1 if side knight
-    /// 0 if no side knight
+    /// 1 if side knight can attack
+    /// 0 if no side knight cant attack
+    #[inline(always)]
     pub const fn knight_attack_mask(&self, side: u64) -> u64 {
         let knights = self.side_knight_mask(side);
-        let movable_squares = !self.side_piece_mask(side);
         //0b11111100
-        let knights_r2 = knights & 0xfcfcfcfcfcfcfc;
+        let knights_r2 = knights & !Self::LEFT2_SIDE;
         //0b11111110
-        let knights_r1 = knights & 0xfefefefefefefe;
+        let knights_r1 = knights & !Self::LEFT_SIDE;
         //0b11111100
-        let knights_l1 = knights & 0x7f7f7f7f7f7f7f;
+        let knights_l1 = knights & !Self::RIGHT_SIDE;
         //0b11111110
-        let knights_l2 = knights & 0x3f3f3f3f3f3f3f;
-        let potential_moves = (knights_r2 >> 10) | (knights_r2 << 6) |
+        let knights_l2 = knights & !Self::RIGHT2_SIDE;
+        (knights_r2 >> 10) | (knights_r2 << 6) |
             (knights_r1 >> 17) | (knights_r1 << 15) |
             (knights_l1 >> 15) | (knights_l1 << 17) |
-            (knights_l2 >> 6) | (knights_l2 << 10);
-        potential_moves & movable_squares
+            (knights_l2 >> 6) | (knights_l2 << 10)
+    }
+
+    /// 1 if bishop like
+    /// 0 if no bishop like
+    #[inline(always)]
+    pub const fn bishop_like_mask(&self) -> u64 {
+        self.board[0] & !self.board[2]
+    }
+
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side bishop like
+    /// 0 if no side bishop like
+    #[inline(always)]
+    pub const fn side_bishop_like_mask(&self, side: u64) -> u64 {
+        self.bishop_like_mask() & (self.colour_mask() ^ side)
+    }
+
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side bishop can attack
+    /// 0 if no side bishop cant attack
+    /// Note: a queen is a bishop
+    #[inline(always)]
+    pub const fn bishop_like_attack_mask(&self, side: u64) -> u64 {
+        let bishops = self.side_bishop_like_mask(side);
+        let pieces = self.piece_mask();
+        let mut ur = (bishops << 7) & !Self::LEFT_SIDE;
+        let mut ul = (bishops << 9) & !Self::RIGHT_SIDE;
+        let mut dr = (bishops >> 9) & !Self::LEFT_SIDE;
+        let mut dl = (bishops >> 7) & !Self::RIGHT_SIDE;
+        let mut i = 0;
+        while i != 6 {
+            ur |= ((ur & !pieces) << 7) & !Self::LEFT_SIDE;
+            ul |= ((ul & !pieces) << 9) & !Self::RIGHT_SIDE;
+            dr |= ((dr & !pieces) >> 9) & !Self::LEFT_SIDE;
+            dl |= ((dl & !pieces) >> 7) & !Self::RIGHT_SIDE;
+            i += 1;
+        }
+        ur | ul | dr | dl
+    }
+
+    /// 1 if rook like
+    /// 0 if no rook like
+    #[inline(always)]
+    pub const fn rook_like_mask(&self) -> u64 {
+        self.board[1] & !(self.board[0] & self.board[2])
+    }
+
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side rook like
+    /// 0 if no side rook like
+    #[inline(always)]
+    pub const fn side_rook_like_mask(&self, side: u64) -> u64 {
+        self.rook_like_mask() & (self.colour_mask() ^ side)
+    }
+
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side rook can attack
+    /// 0 if no side rook cant attack
+    /// Note: a queen is a rook
+    #[inline(always)]
+    pub const fn rook_like_attack_mask(&self, side: u64) -> u64 {
+        let rooks = self.side_rook_like_mask(side);
+        let pieces = self.piece_mask();
+        let mut r = (rooks >> 1) & !Self::LEFT_SIDE;
+        let mut l = (rooks << 1) & !Self::RIGHT_SIDE;
+        let mut u = rooks << 8;
+        let mut d = rooks >> 8;
+        let mut i = 0;
+        while i != 6 {
+            r |= ((r & !pieces) >> 1) & !Self::LEFT_SIDE;
+            l |= ((l & !pieces) << 1) & !Self::RIGHT_SIDE;
+            u |= (u & !pieces) << 8;
+            d |= (d & !pieces) >> 8;
+            i += 1;
+        }
+        r | l | u | d
+    }
+
+    /// 1 if king
+    /// 0 if no king
+    #[inline(always)]
+    pub const fn king_mask(&self) -> u64 {
+        self.board[0] & self.board[1] & self.board[2]
+    }
+
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side king
+    /// 0 if no side king
+    #[inline(always)]
+    pub const fn side_king_mask(&self, side: u64) -> u64 {
+        self.king_mask() & (self.colour_mask() ^ side)
+    }
+
+    /// side 0 = white, u64::MAX = black
+    /// 1 if side king can attack
+    /// 0 if no side king cant attack
+    #[inline(always)]
+    pub const fn king_attack_mask(&self, side: u64) -> u64 {
+        let kings = self.side_king_mask(side);
+        let u = kings << 8;
+        let d = kings >> 8;
+        let mast =  kings | u | d;
+        ((mast >> 1) & !Self::LEFT_SIDE) | ((mast << 1) & !Self::RIGHT_SIDE) | u | d
+    }
+
+    #[inline(always)]
+    pub const fn attack_mask(&self, side: u64) -> u64 {
+        self.pawn_attack_mask(side) |
+            self.knight_attack_mask(side) |
+            self.bishop_like_attack_mask(side) |
+            self.rook_like_attack_mask(side) |
+            self.king_attack_mask(side)
     }
 }
 
