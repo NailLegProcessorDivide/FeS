@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{notation::AlgebraicMove, game::{ChessGame, Move}, piece::PlayerColour};
 
-struct BBMove {
+pub struct BBMove {
     /// 0b-pccvvvuuuyyyxxx
     /// xxx: from x
     /// yyy: from y
@@ -263,8 +263,8 @@ impl BitBoard {
     }
 }
 
-struct BitBoardGame {
-    board: BitBoard,
+pub struct BitBoardGame {
+    pub board: BitBoard,
     turn: PlayerColour,
 }
 
@@ -285,12 +285,14 @@ impl ChessGame for BitBoardGame {
             "b" => PlayerColour::Black,
             _ => return None
         };
+        println!("a");
 
         let castle_rights = fen_parts.next()?;
         let white_ks_castle = castle_rights.contains('K');
         let white_qs_castle = castle_rights.contains('Q');
         let black_ks_castle = castle_rights.contains('k');
         let black_qs_castle = castle_rights.contains('q');
+        println!("b");
 
         let enpassant_col = match fen_parts.next()?.chars().next()? {
             'a' => Some(0),
@@ -303,18 +305,16 @@ impl ChessGame for BitBoardGame {
             'h' => Some(7),
             _ => None,
         };
+        println!("c");
         let mut board: [u64; 4] = [0; 4];
         let mut counter = 0;
         for c in fenboard.replace('/',"").chars() {
             if c.is_digit(10) {
-                counter += c as u8;
+                counter += c.to_digit(10)?;
                 continue;
             }
-            let mask = 0x1000000000000000 >> counter;
 
-            board[3] |= if c >= 'A' {mask} else {0};
-
-            let piece_idx = match c.to_ascii_uppercase() {
+            let mut piece_idx = match c.to_ascii_uppercase() {
                 'P' => { 0b100 }
                 'N' => { 0b101 }
                 'B' => { 0b001 }
@@ -333,14 +333,17 @@ impl ChessGame for BitBoardGame {
                 'K' => { 0b111 }
                 _ => return None
             };
+            piece_idx |= if c <= 'a' {0b1000} else {0};
             board.iter_mut().enumerate().for_each(|(i, v)| *v |= ((piece_idx >> i) & 1) << (63 - counter));
             counter += 1;
         }
+        println!("d {:x}", board[3]);
 
         match enpassant_col {
             Some(x) => board[0] |= 1 << (if turn == PlayerColour::White {24} else {48} + x),
             None => {}
         }
+        println!("e");
 
         if counter == 64 {
             Some(BitBoardGame { board: BitBoard { board }, turn: turn })
@@ -378,11 +381,11 @@ impl Display for BitBoard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut bstr = String::from("");
 
-        for i in 0..63 {
-            let mask = 0x1000000000000000 >> i;
-            let is_white = self.board[0] & mask > 0;
+        for i in 0..64 {
+            let mask = 1 << 63 - i;
+            let is_white = self.board[3] & mask != 0;
 
-            let c = match (self.board[1] & mask == 1, self.board[2] & mask == 1, self.board[3] & mask == 1) {
+            let c = match (self.board[2] & mask != 0, self.board[1] & mask != 0, self.board[0] & mask != 0) {
                 (false,false,false) => {
                     if is_white {
                         '*'
@@ -399,8 +402,8 @@ impl Display for BitBoard {
                 (true ,true ,true ) => 'k'
             };
 
-            bstr.push(if self.board[1] & mask == 1 && is_white {c.to_ascii_uppercase()} else {c});
-            if i % 8 == 0 {
+            bstr.push(if is_white {c.to_ascii_uppercase()} else {c});
+            if i % 8 == 7 {
                 bstr.push('\n');
             }
         }
