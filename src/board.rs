@@ -210,7 +210,7 @@ impl ChessGame for GameState {
         } else {
             let (fx, fy) = unpack_index(mov.from);
             let (tx, ty) = unpack_index(mov.to);
-            
+
             if mov.from == 0 || mov.to == 0 || mov.from == 4 { // mov to 4 without moving from 4 would be taking the king
                 self.meta.white_qs_castle = false
             }
@@ -326,7 +326,7 @@ impl ChessGame for GameState {
             if i >= moves.len() { break; }
             let (fx, fy) = unpack_index(moves[i].from);
             if self.board.pieces[fy][fx].unwrap().piece() == Piece::King {
-                let dist = moves[i].from as i8 - moves[i].to as i8;        
+                let dist = moves[i].from as i8 - moves[i].to as i8;
                 if dist ==  2 && (is_check || !moves.contains(&FesMoveDet {from: moves[i].from, to: moves[i].to+1, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) ||
                    dist == -2 && (is_check || !moves.contains(&FesMoveDet {from: moves[i].from, to: moves[i].to-1, promo: None, take: None, enpas: false, meta: moves[i].meta.clone()})) {
                     // if this is a castling move but the king can't move normally along the path then remove this move
@@ -404,120 +404,121 @@ impl GameState {
 
     fn get_preliminary_moves(&self) -> Vec<FesMoveDet> {
         let mut moves = Vec::new();
-            
+
         for y in 0..8 {
             for x in 0..8 {
-                if self.board.pieces[y][x].is_none() { continue; }
+                if let Some(piece) = self.board.pieces[y][x] {
 
-                let is_white = self.board.pieces[y][x].unwrap().is_white();
-                let piece_col = if is_white {White} else {Black};
+                    let is_white = piece.is_white();
+                    let piece_col = if is_white {White} else {Black};
 
-                if self.turn != piece_col { continue; }
-                
-                match self.board.pieces[y][x].unwrap().piece() {
-                    Piece::Pawn => {
-                        let can_prom = y == 6 && is_white || y == 1 && !is_white;
-                        let nxs: [usize; 2] = [x-1, x+1];
-                        let ny: usize  = if is_white {y+1} else {y-1};
-                        let ny2: usize = if is_white {y+2} else {y-2};
-                        let ystart: usize = if is_white {1} else {6};
-                        let ypassant: usize = if is_white {4} else {3};
+                    if self.turn != piece_col { continue; }
 
-                        let from = pack(x, y);
-                        
-                        for nx in nxs {
-                            if nx < 8 && (!ColouredPiece::opt_is_col(self.board.pieces[ny][nx], piece_col, true) ||
-                            (y == ypassant && self.meta.enpasant_col.is_some_and(|col| col as usize == nx))) {
-                                let take = match self.board.pieces[ny][nx] {
-                                    Some(p) => Some(p.piece()),
-                                    None => None
-                                };
-                                let to = pack(nx, ny);
-                                if can_prom {
-                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Queen, take, &self.meta);
-                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Rook, take, &self.meta);
-                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Bishop, take, &self.meta);
-                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Knight, take, &self.meta);
-                                }
-                                else {
-                                    if y == ypassant && self.meta.enpasant_col.is_some_and(|col| col as usize == nx) {
-                                        FesMoveDet::push_enpas(&mut moves, from, to, &self.meta)
+                    match piece.piece() {
+                        Piece::Pawn => {
+                            let can_prom = y == 6 && is_white || y == 1 && !is_white;
+                            let nxs: [usize; 2] = [x-1, x+1];
+                            let ny: usize  = if is_white {y+1} else {y-1};
+                            let ny2: usize = if is_white {y+2} else {y-2};
+                            let ystart: usize = if is_white {1} else {6};
+                            let ypassant: usize = if is_white {4} else {3};
+
+                            let from = pack(x, y);
+
+                            for nx in nxs {
+                                if nx < 8 && (!ColouredPiece::opt_is_col(self.board.pieces[ny][nx], piece_col, true) ||
+                                (y == ypassant && self.meta.enpasant_col.is_some_and(|col| col as usize == nx))) {
+                                    let take = match self.board.pieces[ny][nx] {
+                                        Some(p) => Some(p.piece()),
+                                        None => None
+                                    };
+                                    let to = pack(nx, ny);
+                                    if can_prom {
+                                        FesMoveDet::push_promo(&mut moves, from, to, Piece::Queen, take, &self.meta);
+                                        FesMoveDet::push_promo(&mut moves, from, to, Piece::Rook, take, &self.meta);
+                                        FesMoveDet::push_promo(&mut moves, from, to, Piece::Bishop, take, &self.meta);
+                                        FesMoveDet::push_promo(&mut moves, from, to, Piece::Knight, take, &self.meta);
                                     }
                                     else {
-                                        FesMoveDet::push_take(&mut moves, from, to, take, &self.meta);
+                                        if y == ypassant && self.meta.enpasant_col.is_some_and(|col| col as usize == nx) {
+                                            FesMoveDet::push_enpas(&mut moves, from, to, &self.meta)
+                                        }
+                                        else {
+                                            FesMoveDet::push_take(&mut moves, from, to, take, &self.meta);
+                                        }
                                     }
                                 }
                             }
-                        }
-                        if self.board.pieces[ny][x].is_none() {
-                            let to = pack(x, ny);
-                            if can_prom {
-                                FesMoveDet::push_promo(&mut moves, from, to, Piece::Queen, None, &self.meta);
-                                FesMoveDet::push_promo(&mut moves, from, to, Piece::Rook, None, &self.meta);
-                                FesMoveDet::push_promo(&mut moves, from, to, Piece::Bishop, None, &self.meta);
-                                FesMoveDet::push_promo(&mut moves, from, to, Piece::Knight, None, &self.meta);
+                            if self.board.pieces[ny][x].is_none() {
+                                let to = pack(x, ny);
+                                if can_prom {
+                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Queen, None, &self.meta);
+                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Rook, None, &self.meta);
+                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Bishop, None, &self.meta);
+                                    FesMoveDet::push_promo(&mut moves, from, to, Piece::Knight, None, &self.meta);
+                                }
+                                else {
+                                    FesMoveDet::push_basic(&mut moves, from, to, &self.meta);
+                                }
+                                if y == ystart && self.board.pieces[ny2][x].is_none() {
+                                    let to = pack(x, ny2);
+                                    FesMoveDet::push_basic(&mut moves, from, to, &self.meta);
+                                }
                             }
-                            else {
-                                FesMoveDet::push_basic(&mut moves, from, to, &self.meta);
+                        },
+                        Piece::Knight => {
+                            for di in 1..=2 {
+                                let dj = 3 - di;
+                                self.optionaly_add(piece_col, x, y, x + di, y + dj, &mut moves);
+                                self.optionaly_add(piece_col, x, y, x - di, y + dj, &mut moves);
+                                self.optionaly_add(piece_col, x, y, x + di, y - dj, &mut moves);
+                                self.optionaly_add(piece_col, x, y, x - di, y - dj, &mut moves);
                             }
-                            if y == ystart && self.board.pieces[ny2][x].is_none() {
-                                let to = pack(x, ny2);
-                                FesMoveDet::push_basic(&mut moves, from, to, &self.meta);
-                            }
+                        },
+                        Piece::Bishop => {
+                            self.bishop_moves(piece_col, x, y, &mut moves);
+                        },
+                        Piece::Rook => {
+                            self.rook_moves(piece_col, x, y, &mut moves);
+                        },
+                        Piece::Queen => {
+                            self.bishop_moves(piece_col, x, y, &mut moves);
+                            self.rook_moves(piece_col, x, y, &mut moves);
+                        },
+                        Piece::King => {
+                            self.optionaly_add(piece_col, x, y, x + 1, y + 1, &mut moves);
+                            self.optionaly_add(piece_col, x, y, x + 1,     y, &mut moves);
+                            self.optionaly_add(piece_col, x, y, x + 1, y - 1, &mut moves);
+                            self.optionaly_add(piece_col, x, y,     x, y + 1, &mut moves);
+                            self.optionaly_add(piece_col, x, y,     x, y - 1, &mut moves);
+                            self.optionaly_add(piece_col, x, y, x - 1, y + 1, &mut moves);
+                            self.optionaly_add(piece_col, x, y, x - 1,     y, &mut moves);
+                            self.optionaly_add(piece_col, x, y, x - 1, y - 1, &mut moves);
                         }
-                    },
-                    Piece::Knight => {
-                        for di in 1..=2 {
-                            let dj = 3 - di;
-                            self.optionaly_add(piece_col, x, y, x + di, y + dj, &mut moves);
-                            self.optionaly_add(piece_col, x, y, x - di, y + dj, &mut moves);
-                            self.optionaly_add(piece_col, x, y, x + di, y - dj, &mut moves);
-                            self.optionaly_add(piece_col, x, y, x - di, y - dj, &mut moves);
-                        }
-                    },
-                    Piece::Bishop => {
-                        self.bishop_moves(piece_col, x, y, &mut moves);
-                    },
-                    Piece::Rook => {
-                        self.rook_moves(piece_col, x, y, &mut moves);
-                    },
-                    Piece::Queen => {
-                        self.bishop_moves(piece_col, x, y, &mut moves);
-                        self.rook_moves(piece_col, x, y, &mut moves);
-                    },
-                    Piece::King => {
-                        self.optionaly_add(piece_col, x, y, x + 1, y + 1, &mut moves);
-                        self.optionaly_add(piece_col, x, y, x + 1,     y, &mut moves);
-                        self.optionaly_add(piece_col, x, y, x + 1, y - 1, &mut moves);
-                        self.optionaly_add(piece_col, x, y,     x, y + 1, &mut moves);
-                        self.optionaly_add(piece_col, x, y,     x, y - 1, &mut moves);
-                        self.optionaly_add(piece_col, x, y, x - 1, y + 1, &mut moves);
-                        self.optionaly_add(piece_col, x, y, x - 1,     y, &mut moves);
-                        self.optionaly_add(piece_col, x, y, x - 1, y - 1, &mut moves);
                     }
                 }
             }
         }
 
         if self.turn == White {
-            if self.meta.white_ks_castle && 
+            if self.meta.white_ks_castle &&
                 !self.board.pieces[1][4..=7].iter().any(|p| *p == Some(BlackPawn)) &&
                 !self.board.pieces[0][5..=6].iter().any(|p| p.is_some())  {
                 FesMoveDet::push_basic(&mut moves, 4, 6, &self.meta);
             }
-            if self.meta.white_qs_castle && 
+            if self.meta.white_qs_castle &&
                 !self.board.pieces[1][1..=4].iter().any(|p| *p == Some(BlackPawn)) &&
                 !self.board.pieces[0][1..=3].iter().any(|p| p.is_some())  {
                 FesMoveDet::push_basic(&mut moves, 4, 2, &self.meta);
             }
             FesMoveDet::push_basic(&mut moves, 4, 4, &self.meta); // a silly little pseudo-move for detecting check later
         } else {
-            if self.meta.black_ks_castle && 
+            if self.meta.black_ks_castle &&
                 !self.board.pieces[6][4..=7].iter().any(|p| *p == Some(WhitePawn)) &&
                 !self.board.pieces[7][5..=6].iter().any(|p| p.is_some())  {
                 FesMoveDet::push_basic(&mut moves, 60, 62, &self.meta);
             }
-            if self.meta.black_qs_castle && 
+            if self.meta.black_qs_castle &&
                 !self.board.pieces[6][1..=4].iter().any(|p| *p == Some(WhitePawn)) &&
                 !self.board.pieces[7][1..=3].iter().any(|p| p.is_some())  {
                 FesMoveDet::push_basic(&mut moves, 60, 58, &self.meta);
@@ -525,7 +526,7 @@ impl GameState {
             FesMoveDet::push_basic(&mut moves, 60, 60, &self.meta);
         }
 
-    
+
         moves
     }
 

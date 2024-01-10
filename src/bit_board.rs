@@ -303,7 +303,10 @@ impl ChessGame for BitBoardGame {
             'h' => Some(7),
             _ => None,
         };
-
+        const PIECE_MASK: [u64; 4] = [0b1111111100000000,
+                                       0b1111000011110000,
+                                       0b1100110011001100,
+                                       0b1010101010101010,];
         let mut board: [u64; 4] = [0; 4];
         let mut counter = 0;
         for c in fenboard.replace('/',"").chars() {
@@ -312,36 +315,35 @@ impl ChessGame for BitBoardGame {
                 continue;
             }
             let mask = 0x1000000000000000 >> counter;
-    
-            board[0] |= if c >= 'A' {mask} else {0};
 
-            match c.to_ascii_uppercase() {
-                'P' => {
-                    if counter % 8 == enpassant_col? &&
-                    (turn == PlayerColour::White && counter <  32 ||
-                     turn == PlayerColour::Black && counter >= 32)
-                    {
-                        board[0] |= mask;
-                    } else {
-                        board[1] |= mask; 
-                    }
-                }
-                'N' => { board[1] |= mask; board[3] |= mask; }
-                'B' => { board[3] |= mask; }
-                'R' => { 
+            board[3] |= if c >= 'A' {mask} else {0};
+
+            let piece_idx = match c.to_ascii_uppercase() {
+                'P' => { 0b100 }
+                'N' => { 0b101 }
+                'B' => { 0b001 }
+                'R' => {
                     if counter == 0  && black_qs_castle ||
-                    counter == 7  && black_ks_castle ||
-                    counter == 56 && white_qs_castle ||
-                    counter == 63 && white_ks_castle {
-                        board[1] |= mask;
+                        counter == 7  && black_ks_castle ||
+                        counter == 56 && white_qs_castle ||
+                        counter == 63 && white_ks_castle {
+                        0b110
                     }
-                    board[2] |= mask; 
+                    else {
+                        0b010
+                    }
                 }
-                'Q' => { board[2] |= mask; board[3] |= mask; }
-                'K' => { board[1] |= mask; board[2] |= mask; board[3] |= mask; }
+                'Q' => { 0b011 }
+                'K' => { 0b111 }
                 _ => return None
-            }
+            };
+            board.iter_mut().enumerate().for_each(|(i, v)| *v |= ((PIECE_MASK[i] >> piece_idx) & 1) << (64 - counter));
             counter += 1;
+        }
+
+        match enpassant_col {
+            Some(x) => board[0] |= 1 << (if turn == PlayerColour::White {24} else {48} + x),
+            None => {}
         }
 
         if counter == 64 {
@@ -350,7 +352,7 @@ impl ChessGame for BitBoardGame {
             None
         }
     }
-    
+
     fn decode_alg(&mut self, mov: &AlgebraicMove) -> Self::Move {
         todo!()
     }
@@ -376,41 +378,40 @@ impl ChessGame for BitBoardGame {
     }
 }
 
-// impl Display for BitBoard {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.write_fmt(format_args!("{}", self.board[0]));
+impl Display for BitBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut bstr = String::from("");
 
-//         // let mut bstr = String::from("");
+        for i in 0..63 {
+            let mask = 0x1000000000000000 >> i;
+            let is_white = self.board[0] & mask > 0;
 
-//         // for i in 0..63 {
-//         //     let mask = 0x1000000000000000 >> i;
-//         //     let is_white = self.board[0] & mask > 0;
+            let c = match (self.board[1] & mask == 1, self.board[2] & mask == 1, self.board[3] & mask == 1) {
+                (false,false,false) => {
+                    if is_white {
+                        '*'
+                    } else {
+                        '-'
+                    }
+                }
+                (true ,false,false) => 'p',
+                (true ,false,true ) => 'n',
+                (false,false,true ) => 'b',
+                (false,true ,false) => 'r',
+                (true ,true ,false) => 'r',
+                (false,true ,true ) => 'q',
+                (true ,true ,true ) => 'k'
+            };
 
-//         //     let c = match (self.board[1] & mask == 1, self.board[2] & mask == 1, self.board[3] & mask == 1) {
-//         //         (false,false,false) => {
-//         //             if is_white {
-//         //                 if i < 32 {'p'} else {'P'}
-//         //             } else {
-//         //                 '-'
-//         //             }
-//         //         }
-//         //         (true ,false,false) => 'p',
-//         //         (true ,false,true ) => 'n',
-//         //         (false,false,true ) => 'b',
-//         //         (false,true ,false) => 'r',
-//         //         (true ,true ,false) => 'r',
-//         //         (false,true ,true ) => 'q',
-//         //         (true ,true ,true ) => 'k'
-//         //     };
+            bstr.push(if self.board[1] & mask == 1 && is_white {c.to_ascii_uppercase()} else {c});
+            if i % 8 == 0 {
+                bstr.push('\n');
+            }
+        }
+        f.write_fmt(format_args!("{}", bstr))
 
-//         //     bstr.push(if self.board[1] & mask == 1 && is_white {c.to_ascii_uppercase()} else {c});
-//         //     if i % 8 == 0 {
-//         //         bstr.push('\n');
-//         //     }
-//         // }
-      
-//     }
-// }
+    }
+}
 
 impl Display for BBMove {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
