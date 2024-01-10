@@ -303,10 +303,6 @@ impl ChessGame for BitBoardGame {
             'h' => Some(7),
             _ => None,
         };
-        const PIECE_MASK: [u64; 4] = [0b1010101010101010,
-                                      0b1100110011001100,
-                                      0b1111000011110000,
-                                      0b1111111100000000,];
         let mut board: [u64; 4] = [0; 4];
         let mut counter = 0;
         for c in fenboard.replace('/',"").chars() {
@@ -337,7 +333,7 @@ impl ChessGame for BitBoardGame {
                 'K' => { 0b111 }
                 _ => return None
             };
-            board.iter_mut().enumerate().for_each(|(i, v)| *v |= ((PIECE_MASK[i] >> piece_idx) & 1) << (63 - counter));
+            board.iter_mut().enumerate().for_each(|(i, v)| *v |= ((piece_idx >> i) & 1) << (63 - counter));
             counter += 1;
         }
 
