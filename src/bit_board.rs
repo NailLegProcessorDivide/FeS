@@ -2,24 +2,24 @@ use std::fmt::Display;
 
 use crate::{notation::AlgebraicMove, game::{ChessGame, Move}, piece::PlayerColour};
 
-struct BBMove {
+pub struct BBMove {
     /// 0b-pccvvvuuuyyyxxx
-    /// xxx from x
-    /// yyy from y
-    /// uuu to x
-    /// vvv from y
-    /// cc promotion
-    ///   00 = knight
-    ///   01 = bishop
-    ///   10 = rook
-    ///   11 = queen
-    /// p promote
+    /// xxx: from x
+    /// yyy: from y
+    /// uuu: to x
+    /// vvv: to y
+    /// cc: promotion type
+    ///  - 00 = knight
+    ///  - 01 = bishop
+    ///  - 10 = rook
+    ///  - 11 = queen
+    /// p: can promote
     packed: u16
 }
 
-/// Column wise repr of chess board
+/// Column-wise representation of chess board (if you stack each u64 on top of each other)
 /// 0000 => none
-/// 1000 => enpasentable pawn
+/// 1000 => enpassantable pawn
 /// 1??? => white
 /// 0??? => black
 /// ?001 => bishop
@@ -29,7 +29,6 @@ struct BBMove {
 /// ?101 => knight
 /// ?110 => castleable rook
 /// ?111 => king
-
 pub struct BitBoard {
     board: [u64; 4]
 }
@@ -264,8 +263,8 @@ impl BitBoard {
     }
 }
 
-struct BitBoardGame {
-    board: BitBoard,
+pub struct BitBoardGame {
+    pub board: BitBoard,
     turn: PlayerColour,
 }
 
@@ -279,7 +278,74 @@ impl ChessGame for BitBoardGame {
     }
 
     fn from_fen(fen: &str) -> Option<Self> {
-        todo!()
+        let mut fen_parts = fen.trim().split(" ");
+        let fenboard = fen_parts.next()?;
+        let turn = match fen_parts.next()? {
+            "w" => PlayerColour::White,
+            "b" => PlayerColour::Black,
+            _ => return None
+        };
+
+        let castle_rights = fen_parts.next()?;
+        let white_ks_castle = castle_rights.contains('K');
+        let white_qs_castle = castle_rights.contains('Q');
+        let black_ks_castle = castle_rights.contains('k');
+        let black_qs_castle = castle_rights.contains('q');
+
+        let enpassant_col = match fen_parts.next()?.chars().next()? {
+            'a' => Some(0),
+            'b' => Some(1),
+            'c' => Some(2),
+            'd' => Some(3),
+            'e' => Some(4),
+            'f' => Some(5),
+            'g' => Some(6),
+            'h' => Some(7),
+            _ => None,
+        };
+
+        let mut board: [u64; 4] = [0; 4];
+        let mut counter = 0;
+        for c in fenboard.replace('/',"").chars() {
+            if c.is_digit(10) {
+                counter += c.to_digit(10)?;
+                continue;
+            }
+
+            let mut piece_idx = match c.to_ascii_uppercase() {
+                'P' => { 0b100 }
+                'N' => { 0b101 }
+                'B' => { 0b001 }
+                'R' => {
+                    if counter == 0  && black_qs_castle ||
+                        counter == 7  && black_ks_castle ||
+                        counter == 56 && white_qs_castle ||
+                        counter == 63 && white_ks_castle {
+                        0b110
+                    }
+                    else {
+                        0b010
+                    }
+                }
+                'Q' => { 0b011 }
+                'K' => { 0b111 }
+                _ => return None
+            };
+            piece_idx |= if c.is_ascii_uppercase() {0b1000} else {0};
+            board.iter_mut().enumerate().for_each(|(i, v)| *v |= ((piece_idx >> i) & 1) << (63 - counter));
+            counter += 1;
+        }
+
+        match enpassant_col {
+            Some(x) => board[0] |= 1 << (if turn == PlayerColour::White {24} else {48} + x),
+            None => {}
+        }
+
+        if counter == 64 {
+            Some(BitBoardGame { board: BitBoard { board }, turn})
+        } else {
+            None
+        }
     }
 
     fn decode_alg(&mut self, mov: &AlgebraicMove) -> Self::Move {
@@ -304,6 +370,41 @@ impl ChessGame for BitBoardGame {
 
     fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
         todo!()
+    }
+}
+
+impl Display for BitBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut bstr = String::from("");
+
+        for i in 0..64 {
+            let mask = 1 << 63 - i;
+            let is_white = self.board[3] & mask != 0;
+
+            let c = match (self.board[2] & mask != 0, self.board[1] & mask != 0, self.board[0] & mask != 0) {
+                (false,false,false) => {
+                    if is_white {
+                        '*'
+                    } else {
+                        '-'
+                    }
+                }
+                (true ,false,false) => 'p',
+                (true ,false,true ) => 'n',
+                (false,false,true ) => 'b',
+                (false,true ,false) => 'r',
+                (true ,true ,false) => 'r',
+                (false,true ,true ) => 'q',
+                (true ,true ,true ) => 'k'
+            };
+
+            bstr.push(if is_white {c.to_ascii_uppercase()} else {c});
+            if i % 8 == 7 {
+                bstr.push('\n');
+            }
+        }
+        f.write_fmt(format_args!("{}", bstr))
+
     }
 }
 
