@@ -285,14 +285,12 @@ impl ChessGame for BitBoardGame {
             "b" => PlayerColour::Black,
             _ => return None
         };
-        println!("a");
 
         let castle_rights = fen_parts.next()?;
         let white_ks_castle = castle_rights.contains('K');
         let white_qs_castle = castle_rights.contains('Q');
         let black_ks_castle = castle_rights.contains('k');
         let black_qs_castle = castle_rights.contains('q');
-        println!("b");
 
         let enpassant_col = match fen_parts.next()?.chars().next()? {
             'a' => Some(0),
@@ -305,7 +303,7 @@ impl ChessGame for BitBoardGame {
             'h' => Some(7),
             _ => None,
         };
-        println!("c");
+
         let mut board: [u64; 4] = [0; 4];
         let mut counter = 0;
         for c in fenboard.replace('/',"").chars() {
@@ -333,20 +331,18 @@ impl ChessGame for BitBoardGame {
                 'K' => { 0b111 }
                 _ => return None
             };
-            piece_idx |= if c <= 'a' {0b1000} else {0};
+            piece_idx |= if c.is_ascii_uppercase() {0b1000} else {0};
             board.iter_mut().enumerate().for_each(|(i, v)| *v |= ((piece_idx >> i) & 1) << (63 - counter));
             counter += 1;
         }
-        println!("d {:x}", board[3]);
 
         match enpassant_col {
             Some(x) => board[0] |= 1 << (if turn == PlayerColour::White {24} else {48} + x),
             None => {}
         }
-        println!("e");
 
         if counter == 64 {
-            Some(BitBoardGame { board: BitBoard { board }, turn: turn })
+            Some(BitBoardGame { board: BitBoard { board }, turn})
         } else {
             None
         }
