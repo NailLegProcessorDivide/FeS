@@ -37,8 +37,8 @@ pub struct BitBoard {
 }
 
 impl BitBoard {
-    const LEFT_SIDE: u64 = 0x0101010101010101;
-    const RIGHT_SIDE: u64 = 0x8080808080808080;
+    const LEFT_SIDE: u64 = 0x8080808080808080;
+    const RIGHT_SIDE: u64 = 0x0101010101010101;
     const LEFT2_SIDE: u64 = Self::LEFT_SIDE | (Self::LEFT_SIDE << 1);
     const RIGHT2_SIDE: u64 = Self::RIGHT_SIDE | (Self::RIGHT_SIDE << 1);
 
@@ -278,16 +278,6 @@ impl BitBoard {
             self.diagonal_attack_mask::<COLOUR>() |
             self.ortho_attack_mask::<COLOUR>() |
             self.king_attack_mask::<COLOUR>()
-    }
-
-    #[inline(always)]
-    pub const fn pin_mask<const COLOUR: bool>(&self) -> u64 {
-        let mut i = 0;
-        while i != 6 {
-            r |= ((r & !pieces) >> 1) & !Self::LEFT_SIDE;
-        }
-
-        kings
     }
 }
 
