@@ -13,13 +13,13 @@ pub struct BBMove {
     ///  - 01 = bishop
     ///  - 10 = rook
     ///  - 11 = queen
-    /// p: can promote
+    /// p: promotion flag
     packed: u16
 }
 
 /// Column-wise representation of chess board (if you stack each u64 on top of each other)
 /// 0000 => none
-/// 1000 => enpassantable pawn
+/// 1000 => enpassant square
 /// 1??? => white
 /// 0??? => black
 /// ?001 => bishop
@@ -30,6 +30,7 @@ pub struct BBMove {
 /// ?110 => castleable rook
 /// ?111 => king
 pub struct BitBoard {
+    // Index that corresponds to each bit: 0b3210
     board: [u64; 4]
 }
 
@@ -64,21 +65,21 @@ impl BitBoard {
         self.board[3]
     }
 
-    /// 1 if real (exc enpasentable pawns) piece
+    /// 1 if real piece (excl. enpassantable pawns)
     /// 0 if no piece
     #[inline(always)]
     pub const fn piece_mask(&self) -> u64 {
         self.board[0] | self.board[1] | self.board[2]
     }
 
-    /// 1 if real (exc enpasentable pawns) black piece
-    /// 0 if no piece
+    /// 1 if real white/black piece (excl. enpassantable pawns)
+    /// 0 if not white/black piece
     #[inline(always)]
-    pub const fn side_piece_mask(&self, side: u64) -> u64 {
-        self.pawn_mask() & (self.colour_mask() ^ side)
+    pub const fn col_piece_mask(&self, colour: u64) -> u64 {
+        self.pawn_mask() & (self.colour_mask() ^ colour)
     }
 
-    /// 1 if piece inc special
+    /// 1 if piece (incl. special enpassant square)
     /// 0 if no piece
     #[inline(always)]
     pub const fn piece_special_mask(&self) -> u64 {
@@ -92,27 +93,41 @@ impl BitBoard {
         !self.board[0] & !self.board[1] & self.board[2]
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side pawn
-    /// 0 if no side pawn
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour pawn
+    /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn side_pawn_mask(&self, side: u64) -> u64 {
-        self.pawn_mask() & (self.colour_mask() ^ side)
+    pub const fn col_pawn_mask(&self, colour: u64) -> u64 {
+        self.pawn_mask() & (self.colour_mask() ^ colour)
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side pawn
-    /// 0 if no side pawn
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour pawn
+    /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn pawn_attack_mask(&self, side: u64) -> u64 {
-        let pawns = self.side_pawn_mask(side);
-        let left_ls = 9 & !side;
-        let left_rs = 7 & side;
-        let right_ls = 7 & !side;
-        let right_rs = 9 & side;
+    pub const fn pawn_attack_mask(&self, colour: u64) -> u64 {
+        let pawns = self.col_pawn_mask(colour);
+        let left_ls =  9 & !colour;
+        let left_rs =  7 &  colour;
+        let right_ls = 7 & !colour;
+        let right_rs = 9 &  colour;
         let left_pawns = (pawns << left_ls) | (pawns >> left_rs) & !Self::RIGHT_SIDE;
         let right_pawns = (pawns << right_ls) | (pawns >> right_rs) & !Self::LEFT_SIDE;
         left_pawns | right_pawns
+    }
+
+    #[inline(always)]
+    pub const fn pawn_move_mask(&self, colour: u64) -> u64 {
+        let pawns = self.col_pawn_mask(colour);
+        let pieces = self.piece_mask();
+
+        if colour > 0 {
+            let step = (pawns << 8) & !pieces;
+            step | ((step << 8) & !pieces & 0xff0000)
+        } else {
+            let step = (pawns >> 8) & !pieces;
+            step | ((step >> 8) & !pieces & 0xff00000000)
+        }
     }
 
     /// 1 if knight
@@ -122,20 +137,20 @@ impl BitBoard {
         self.board[0] & !self.board[1] & self.board[2]
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side knight
-    /// 0 if no side knight
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour knight
+    /// 0 if no colour knight
     #[inline(always)]
-    pub const fn side_knight_mask(&self, side: u64) -> u64 {
-        self.knight_mask() & (self.colour_mask() ^ side)
+    pub const fn col_knight_mask(&self, colour: u64) -> u64 {
+        self.knight_mask() & (self.colour_mask() ^ colour)
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side knight can attack
-    /// 0 if no side knight cant attack
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour knight can attack
+    /// 0 if no colour knight cant attack
     #[inline(always)]
-    pub const fn knight_attack_mask(&self, side: u64) -> u64 {
-        let knights = self.side_knight_mask(side);
+    pub const fn knight_attack_mask(&self, colour: u64) -> u64 {
+        let knights = self.col_knight_mask(colour);
         //0b11111100
         let knights_r2 = knights & !Self::LEFT2_SIDE;
         //0b11111110
@@ -147,31 +162,31 @@ impl BitBoard {
         (knights_r2 >> 10) | (knights_r2 << 6) |
             (knights_r1 >> 17) | (knights_r1 << 15) |
             (knights_l1 >> 15) | (knights_l1 << 17) |
-            (knights_l2 >> 6) | (knights_l2 << 10)
+            (knights_l2 >> 6)  | (knights_l2 << 10)
     }
 
     /// 1 if bishop like
     /// 0 if no bishop like
     #[inline(always)]
-    pub const fn bishop_like_mask(&self) -> u64 {
+    pub const fn diagonal_mask(&self) -> u64 {
         self.board[0] & !self.board[2]
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side bishop like
-    /// 0 if no side bishop like
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour bishop like
+    /// 0 if no colour bishop like
     #[inline(always)]
-    pub const fn side_bishop_like_mask(&self, side: u64) -> u64 {
-        self.bishop_like_mask() & (self.colour_mask() ^ side)
+    pub const fn col_diagonal_mask(&self, colour: u64) -> u64 {
+        self.diagonal_mask() & (self.colour_mask() ^ colour)
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side bishop can attack
-    /// 0 if no side bishop cant attack
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour bishop can attack
+    /// 0 if no colour bishop cant attack
     /// Note: a queen is a bishop
     #[inline(always)]
-    pub const fn bishop_like_attack_mask(&self, side: u64) -> u64 {
-        let bishops = self.side_bishop_like_mask(side);
+    pub const fn diagonal_attack_mask(&self, colour: u64) -> u64 {
+        let bishops = self.col_diagonal_mask(colour);
         let pieces = self.piece_mask();
         let mut ur = (bishops << 7) & !Self::LEFT_SIDE;
         let mut ul = (bishops << 9) & !Self::RIGHT_SIDE;
@@ -191,29 +206,29 @@ impl BitBoard {
     /// 1 if rook like
     /// 0 if no rook like
     #[inline(always)]
-    pub const fn rook_like_mask(&self) -> u64 {
+    pub const fn ortho_mask(&self) -> u64 {
         self.board[1] & !(self.board[0] & self.board[2])
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side rook like
-    /// 0 if no side rook like
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour rook like
+    /// 0 if no colour rook like
     #[inline(always)]
-    pub const fn side_rook_like_mask(&self, side: u64) -> u64 {
-        self.rook_like_mask() & (self.colour_mask() ^ side)
+    pub const fn col_ortho_mask(&self, colour: u64) -> u64 {
+        self.ortho_mask() & (self.colour_mask() ^ colour)
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side rook can attack
-    /// 0 if no side rook cant attack
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour rook can attack
+    /// 0 if no colour rook cant attack
     /// Note: a queen is a rook
     #[inline(always)]
-    pub const fn rook_like_attack_mask(&self, side: u64) -> u64 {
-        let rooks = self.side_rook_like_mask(side);
+    pub const fn ortho_attack_mask(&self, colour: u64) -> u64 {
+        let rooks = self.col_ortho_mask(colour);
         let pieces = self.piece_mask();
         let mut r = (rooks >> 1) & !Self::LEFT_SIDE;
         let mut l = (rooks << 1) & !Self::RIGHT_SIDE;
-        let mut u = rooks << 8;
+        let mut u = rooks << 8; // no need to bounds check as number will become zero if it goes off board
         let mut d = rooks >> 8;
         let mut i = 0;
         while i != 6 {
@@ -233,20 +248,20 @@ impl BitBoard {
         self.board[0] & self.board[1] & self.board[2]
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side king
-    /// 0 if no side king
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour king
+    /// 0 if no colour king
     #[inline(always)]
-    pub const fn side_king_mask(&self, side: u64) -> u64 {
-        self.king_mask() & (self.colour_mask() ^ side)
+    pub const fn col_king_mask(&self, colour: u64) -> u64 {
+        self.king_mask() & (self.colour_mask() ^ colour)
     }
 
-    /// side 0 = white, u64::MAX = black
-    /// 1 if side king can attack
-    /// 0 if no side king cant attack
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour king can attack
+    /// 0 if no colour king cant attack
     #[inline(always)]
-    pub const fn king_attack_mask(&self, side: u64) -> u64 {
-        let kings = self.side_king_mask(side);
+    pub const fn king_attack_mask(&self, colour: u64) -> u64 {
+        let kings = self.col_king_mask(colour);
         let u = kings << 8;
         let d = kings >> 8;
         let mast =  kings | u | d;
@@ -254,12 +269,12 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn attack_mask(&self, side: u64) -> u64 {
-        self.pawn_attack_mask(side) |
-            self.knight_attack_mask(side) |
-            self.bishop_like_attack_mask(side) |
-            self.rook_like_attack_mask(side) |
-            self.king_attack_mask(side)
+    pub const fn attack_mask(&self, colour: u64) -> u64 {
+        self.pawn_attack_mask(colour) |
+            self.knight_attack_mask(colour) |
+            self.diagonal_attack_mask(colour) |
+            self.ortho_attack_mask(colour) |
+            self.king_attack_mask(colour)
     }
 }
 
@@ -353,7 +368,7 @@ impl ChessGame for BitBoardGame {
     }
 
     fn moves(&mut self) -> Vec<Self::Move> {
-        let side_mask = match self.turn {
+        let col_mask = match self.turn {
             PlayerColour::White => 0u64,
             PlayerColour::Black => u64::MAX,
         };
@@ -382,18 +397,11 @@ impl Display for BitBoard {
             let is_white = self.board[3] & mask != 0;
 
             let c = match (self.board[2] & mask != 0, self.board[1] & mask != 0, self.board[0] & mask != 0) {
-                (false,false,false) => {
-                    if is_white {
-                        '*'
-                    } else {
-                        '-'
-                    }
-                }
+                (false,false,false) => if is_white {'*'} else {'-'},
                 (true ,false,false) => 'p',
                 (true ,false,true ) => 'n',
                 (false,false,true ) => 'b',
-                (false,true ,false) => 'r',
-                (true ,true ,false) => 'r',
+                (_    ,true ,false) => 'r',
                 (false,true ,true ) => 'q',
                 (true ,true ,true ) => 'k'
             };
@@ -404,7 +412,6 @@ impl Display for BitBoard {
             }
         }
         f.write_fmt(format_args!("{}", bstr))
-
     }
 }
 
