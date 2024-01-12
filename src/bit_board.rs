@@ -269,6 +269,11 @@ impl BitBoard {
     }
 
     #[inline(always)]
+    pub const fn check_moves(&self, colour: u64) -> u64 {
+        0
+    }
+
+    #[inline(always)]
     pub const fn attack_mask(&self, colour: u64) -> u64 {
         self.pawn_attack_mask(colour) |
             self.knight_attack_mask(colour) |
@@ -386,6 +391,16 @@ impl ChessGame for BitBoardGame {
     fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
         todo!()
     }
+}
+
+pub fn print_bitmask(mask: u64) {
+    let mut bstr = String::from("");
+    for i in 0..64 {
+        if i % 8 == 0 {bstr.push('\n')}
+        bstr.push(if (mask >> 63 - i) & 1 == 0 {'-'} else {'X'});
+    }
+    println!("{:b}", mask);
+    println!("{}", bstr);
 }
 
 impl Display for BitBoard {
