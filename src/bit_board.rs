@@ -17,6 +17,8 @@ pub struct BBMove {
     packed: u16
 }
 
+struct BoolExists<const box_: bool>{}
+
 /// Column-wise representation of chess board (if you stack each u64 on top of each other)
 /// 0000 => none
 /// 1000 => enpassant square
@@ -35,10 +37,10 @@ pub struct BitBoard {
 }
 
 impl BitBoard {
-    const RIGHT_SIDE: u64 = 0x0101010101010101;
-    const LEFT_SIDE: u64 = 0x8080808080808080;
-    const RIGHT2_SIDE: u64 = Self::RIGHT_SIDE | (Self::RIGHT_SIDE << 1);
+    const LEFT_SIDE: u64 = 0x0101010101010101;
+    const RIGHT_SIDE: u64 = 0x8080808080808080;
     const LEFT2_SIDE: u64 = Self::LEFT_SIDE | (Self::LEFT_SIDE << 1);
+    const RIGHT2_SIDE: u64 = Self::RIGHT_SIDE | (Self::RIGHT_SIDE << 1);
 
     /// set cell `square` to an empty cell
     #[inline(always)]
@@ -61,7 +63,7 @@ impl BitBoard {
     /// 1 if white
     /// 0 if black or no piece
     #[inline(always)]
-    pub const fn colour_mask(&self) -> u64 {
+    pub const fn colour_mask<const COLOUR: bool>(&self) -> u64 {
         self.board[3]
     }
 
@@ -75,8 +77,8 @@ impl BitBoard {
     /// 1 if real white/black piece (excl. enpassantable pawns)
     /// 0 if not white/black piece
     #[inline(always)]
-    pub const fn col_piece_mask(&self, colour: u64) -> u64 {
-        self.pawn_mask() & (self.colour_mask() ^ colour)
+    pub const fn col_piece_mask<const COLOUR: bool>(&self) -> u64 {
+        self.pawn_mask() & self.colour_mask::<COLOUR>()
     }
 
     /// 1 if piece (incl. special enpassant square)
@@ -97,31 +99,32 @@ impl BitBoard {
     /// 1 if colour pawn
     /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn col_pawn_mask(&self, colour: u64) -> u64 {
-        self.pawn_mask() & (self.colour_mask() ^ colour)
+    pub const fn col_pawn_mask<const COLOUR: bool>(&self) -> u64 {
+        self.pawn_mask() & self.colour_mask::<COLOUR>()
     }
 
     /// colour 0 = white, u64::MAX = black
     /// 1 if colour pawn
     /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn pawn_attack_mask(&self, colour: u64) -> u64 {
-        let pawns = self.col_pawn_mask(colour);
-        let left_ls =  9 & !colour;
-        let left_rs =  7 &  colour;
-        let right_ls = 7 & !colour;
-        let right_rs = 9 &  colour;
-        let left_pawns = (pawns << left_ls) | (pawns >> left_rs) & !Self::RIGHT_SIDE;
-        let right_pawns = (pawns << right_ls) | (pawns >> right_rs) & !Self::LEFT_SIDE;
-        left_pawns | right_pawns
+    pub const fn pawn_attack_mask<const COLOUR: bool>(&self) -> u64 {
+        let pawns = self.col_pawn_mask::<COLOUR>();
+        if COLOUR {
+            ((pawns << 9) & !Self::RIGHT_SIDE) |
+            ((pawns << 7) & !Self::LEFT_SIDE)
+        }
+        else {
+            ((pawns >> 7) & !Self::RIGHT_SIDE) |
+            ((pawns >> 9) & !Self::LEFT_SIDE)
+        }
     }
 
     #[inline(always)]
-    pub const fn pawn_move_mask(&self, colour: u64) -> u64 {
-        let pawns = self.col_pawn_mask(colour);
+    pub const fn pawn_move_mask<const COLOUR: bool>(&self) -> u64 {
+        let pawns = self.col_pawn_mask::<COLOUR>();
         let pieces = self.piece_mask();
 
-        if colour > 0 {
+        if COLOUR {
             let step = (pawns << 8) & !pieces;
             step | ((step << 8) & !pieces & 0xff0000)
         } else {
@@ -141,16 +144,16 @@ impl BitBoard {
     /// 1 if colour knight
     /// 0 if no colour knight
     #[inline(always)]
-    pub const fn col_knight_mask(&self, colour: u64) -> u64 {
-        self.knight_mask() & (self.colour_mask() ^ colour)
+    pub const fn col_knight_mask<const COLOUR: bool>(&self) -> u64 {
+        self.knight_mask() & (self.colour_mask::<COLOUR>())
     }
 
     /// colour 0 = white, u64::MAX = black
     /// 1 if colour knight can attack
     /// 0 if no colour knight cant attack
     #[inline(always)]
-    pub const fn knight_attack_mask(&self, colour: u64) -> u64 {
-        let knights = self.col_knight_mask(colour);
+    pub const fn knight_attack_mask<const COLOUR: bool>(&self) -> u64 {
+        let knights = self.col_knight_mask::<COLOUR>();
         //0b11111100
         let knights_r2 = knights & !Self::LEFT2_SIDE;
         //0b11111110
@@ -176,8 +179,8 @@ impl BitBoard {
     /// 1 if colour bishop like
     /// 0 if no colour bishop like
     #[inline(always)]
-    pub const fn col_diagonal_mask(&self, colour: u64) -> u64 {
-        self.diagonal_mask() & (self.colour_mask() ^ colour)
+    pub const fn col_diagonal_mask<const COLOUR: bool>(&self) -> u64 {
+        self.diagonal_mask() & (self.colour_mask::<COLOUR>())
     }
 
     /// colour 0 = white, u64::MAX = black
@@ -185,8 +188,8 @@ impl BitBoard {
     /// 0 if no colour bishop cant attack
     /// Note: a queen is a bishop
     #[inline(always)]
-    pub const fn diagonal_attack_mask(&self, colour: u64) -> u64 {
-        let bishops = self.col_diagonal_mask(colour);
+    pub const fn diagonal_attack_mask<const COLOUR: bool>(&self) -> u64 {
+        let bishops = self.col_diagonal_mask::<COLOUR>();
         let pieces = self.piece_mask();
         let mut ur = (bishops << 7) & !Self::LEFT_SIDE;
         let mut ul = (bishops << 9) & !Self::RIGHT_SIDE;
@@ -214,8 +217,8 @@ impl BitBoard {
     /// 1 if colour rook like
     /// 0 if no colour rook like
     #[inline(always)]
-    pub const fn col_ortho_mask(&self, colour: u64) -> u64 {
-        self.ortho_mask() & (self.colour_mask() ^ colour)
+    pub const fn col_ortho_mask<const COLOUR: bool>(&self) -> u64 {
+        self.ortho_mask() & (self.colour_mask::<COLOUR>())
     }
 
     /// colour 0 = white, u64::MAX = black
@@ -223,8 +226,8 @@ impl BitBoard {
     /// 0 if no colour rook cant attack
     /// Note: a queen is a rook
     #[inline(always)]
-    pub const fn ortho_attack_mask(&self, colour: u64) -> u64 {
-        let rooks = self.col_ortho_mask(colour);
+    pub const fn ortho_attack_mask<const COLOUR: bool>(&self) -> u64 {
+        let rooks = self.col_ortho_mask::<COLOUR>();
         let pieces = self.piece_mask();
         let mut r = (rooks >> 1) & !Self::LEFT_SIDE;
         let mut l = (rooks << 1) & !Self::RIGHT_SIDE;
@@ -252,16 +255,16 @@ impl BitBoard {
     /// 1 if colour king
     /// 0 if no colour king
     #[inline(always)]
-    pub const fn col_king_mask(&self, colour: u64) -> u64 {
-        self.king_mask() & (self.colour_mask() ^ colour)
+    pub const fn col_king_mask<const COLOUR: bool>(&self) -> u64 {
+        self.king_mask() & (self.colour_mask::<COLOUR>())
     }
 
     /// colour 0 = white, u64::MAX = black
     /// 1 if colour king can attack
     /// 0 if no colour king cant attack
     #[inline(always)]
-    pub const fn king_attack_mask(&self, colour: u64) -> u64 {
-        let kings = self.col_king_mask(colour);
+    pub const fn king_attack_mask<const COLOUR: bool>(&self) -> u64 {
+        let kings = self.col_king_mask::<COLOUR>();
         let u = kings << 8;
         let d = kings >> 8;
         let mast =  kings | u | d;
@@ -269,17 +272,22 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn check_moves(&self, colour: u64) -> u64 {
-        0
+    pub const fn attack_mask<const COLOUR: bool>(&self) -> u64 {
+        self.pawn_attack_mask::<COLOUR>() |
+            self.knight_attack_mask::<COLOUR>() |
+            self.diagonal_attack_mask::<COLOUR>() |
+            self.ortho_attack_mask::<COLOUR>() |
+            self.king_attack_mask::<COLOUR>()
     }
 
     #[inline(always)]
-    pub const fn attack_mask(&self, colour: u64) -> u64 {
-        self.pawn_attack_mask(colour) |
-            self.knight_attack_mask(colour) |
-            self.diagonal_attack_mask(colour) |
-            self.ortho_attack_mask(colour) |
-            self.king_attack_mask(colour)
+    pub const fn pin_mask<const COLOUR: bool>(&self) -> u64 {
+        let mut i = 0;
+        while i != 6 {
+            r |= ((r & !pieces) >> 1) & !Self::LEFT_SIDE;
+        }
+
+        kings
     }
 }
 
