@@ -312,8 +312,23 @@ impl BitBoard {
             r2 |= ((r2 & !pieces) >> 1) & !Self::RIGHT_SIDE;
             i += 1;
         }
-        let is_pin = self.col_ortho_mask::<{!COLOUR}>();
-        let mask = (r1 | r2) & (is_pin * 0xff);
+        let is_pin = r2 & self.col_ortho_mask::<{!COLOUR}>();
+        let mut mask = (r1 | r2) & (is_pin * 0xff);
+
+        let mut l1 = (kings << 1) & !Self::LEFT_SIDE;
+        let mut i = 0;
+        while i != 6 {
+            l1 |= ((l1 & !pieces) << 1) & !Self::LEFT_SIDE;
+            i += 1;
+        }
+        let mut l2 = ((l1 & own_pieces) << 1) & !Self::LEFT_SIDE;
+        let mut i = 0;
+        while i != 5 {
+            l2 |= ((l2 & !pieces) << 1) & !Self::LEFT_SIDE;
+            i += 1;
+        }
+        let is_pin = l2 & self.col_ortho_mask::<{!COLOUR}>();
+        mask |= (l1 | l2) & (((is_pin * 0xff) >> 8) * 0xff);
 
         mask
     }
