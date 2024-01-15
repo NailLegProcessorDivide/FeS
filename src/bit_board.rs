@@ -299,45 +299,45 @@ impl BitBoard {
         let pieces = self.piece_mask();
         let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
         let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
-        let mut mask = 0;
+        let mut mask = u64::MAX;
         let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 1, pieces, Self::RIGHT_SIDE);
         if r1 & other_ortho != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 << 1);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 1, pieces, Self::LEFT_SIDE);
         if r1 & other_ortho != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 >> 1);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 8, pieces, 0);
         if r1 & other_ortho != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 >> 8);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 8, pieces, 0);
         if r1 & other_ortho != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 << 8);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 9, pieces, Self::RIGHT_SIDE);
         if r1 & other_diag != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 << 9);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 9, pieces, Self::LEFT_SIDE);
         if r1 & other_diag != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 >> 9);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 7, pieces, Self::RIGHT_SIDE);
         if r1 & other_diag != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 >> 7);
         }
 
         let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 7, pieces, Self::LEFT_SIDE);
         if r1 & other_diag != 0 {
-            mask |= r1;
+            mask &= r1 | (r1 << 7);
         }
 
         mask
