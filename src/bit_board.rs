@@ -190,10 +190,9 @@ impl BitBoard {
         let knights_l1 = knights & !Self::LEFT_SIDE;
         //0b11111110
         let knights_l2 = knights & !Self::LEFT2_SIDE;
-        (knights_r2 >> 10) | (knights_r2 << 6) |
-            (knights_r1 >> 17) | (knights_r1 << 15) |
-            (knights_l1 >> 15) | (knights_l1 << 17) |
-            (knights_l2 >> 6)  | (knights_l2 << 10)
+        let inner = (knights_r1 >> 1) | (knights_l1 << 1);
+        let outer = (knights_r2 >> 2) | (knights_l2 << 2);
+        (outer << 8) | (outer >> 8) | (inner << 16) | (inner >> 16)
     }
 
     /// 1 if bishop like
@@ -338,6 +337,38 @@ impl BitBoard {
         let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 7, pieces, Self::LEFT_SIDE);
         if r1 & other_diag != 0 {
             mask &= r1;
+        }
+
+        let other_knights = Self::col_knight_mask::<{!COLOUR}>(self);
+
+        let knights_r2 = kings & !Self::RIGHT2_SIDE;
+        let knights_r1 = kings & !Self::RIGHT_SIDE;
+        let knights_l1 = kings & !Self::LEFT_SIDE;
+        let knights_l2 = kings & !Self::LEFT2_SIDE;
+
+        if (knights_r2 >> 10) & other_knights != 0 {
+            mask &= knights_r2 >> 10;
+        }
+        if (knights_r2 << 6) & other_knights != 0 {
+            mask &= knights_r2 << 6;
+        }
+        if (knights_r1 >> 17) & other_knights != 0 {
+            mask &= knights_r2 >> 17;
+        }
+        if (knights_r1 << 15) & other_knights != 0 {
+            mask &= knights_r2 << 15;
+        }
+        if (knights_l1 >> 15) & other_knights != 0 {
+            mask &= knights_r2 >> 15;
+        }
+        if (knights_l1 << 17) & other_knights != 0 {
+            mask &= knights_r2 << 17;
+        }
+        if (knights_l2 >> 6) & other_knights != 0 {
+            mask &= knights_r2 >> 6;
+        }
+        if (knights_l2 << 10) & other_knights != 0 {
+            mask &= knights_r2 << 10;
         }
 
         mask
