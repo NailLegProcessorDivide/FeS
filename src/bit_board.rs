@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, marker::ConstParamTy};
 
 use crate::{notation::AlgebraicMove, game::{ChessGame, Move}, piece::PlayerColour};
 
@@ -36,10 +36,16 @@ pub struct BitBoard {
     board: [u64; 4]
 }
 
+#[derive(ConstParamTy, PartialEq, Eq)]
+pub enum Direction {
+    Left,
+    Right
+}
+
 impl BitBoard {
-    const LEFT_SIDE: u64 = 0x0101010101010101;
-    const RIGHT_SIDE: u64 = 0x8080808080808080;
-    const LEFT2_SIDE: u64 = Self::LEFT_SIDE | (Self::LEFT_SIDE << 1);
+    const LEFT_SIDE: u64 = 0x8080808080808080;
+    const RIGHT_SIDE: u64 = 0x0101010101010101;
+    const LEFT2_SIDE: u64 = Self::LEFT_SIDE | (Self::LEFT_SIDE >> 1);
     const RIGHT2_SIDE: u64 = Self::RIGHT_SIDE | (Self::RIGHT_SIDE << 1);
 
     /// set cell `square` to an empty cell
@@ -93,6 +99,23 @@ impl BitBoard {
         self.board[0] | self.board[1] | self.board[2] | self.board[3]
     }
 
+    #[inline(always)]
+    pub const fn sliding_mask<const SHIFT_DIR: Direction>(pieces: u64, step: u8, colision: u64, side_mask: u64) -> u64 {
+        let mut mask = match SHIFT_DIR {
+            Direction::Left => (pieces << step) & !side_mask,
+            Direction::Right => (pieces >> step) & !side_mask,
+        };
+        let mut i = 0;
+        while i != 6 {
+            mask |= match SHIFT_DIR {
+                Direction::Left => ((mask & !colision) << step) & !side_mask,
+                Direction::Right => ((mask & !colision) >> step) & !side_mask,
+            };
+            i += 1;
+        }
+        mask
+    }
+
     /// 1 if pawn
     /// 0 if no pawn
     #[inline(always)]
@@ -131,7 +154,7 @@ impl BitBoard {
 
         if COLOUR {
             let step = (pawns << 8) & !pieces;
-            step | ((step << 8) & !pieces & 0xff0000)
+            step | ((step << 8) & !pieces & 0xff000000)
         } else {
             let step = (pawns >> 8) & !pieces;
             step | ((step >> 8) & !pieces & 0xff00000000)
@@ -160,13 +183,13 @@ impl BitBoard {
     pub const fn knight_attack_mask<const COLOUR: bool>(&self) -> u64 {
         let knights = self.col_knight_mask::<COLOUR>();
         //0b11111100
-        let knights_r2 = knights & !Self::LEFT2_SIDE;
+        let knights_r2 = knights & !Self::RIGHT2_SIDE;
         //0b11111110
-        let knights_r1 = knights & !Self::LEFT_SIDE;
+        let knights_r1 = knights & !Self::RIGHT_SIDE;
         //0b11111100
-        let knights_l1 = knights & !Self::RIGHT_SIDE;
+        let knights_l1 = knights & !Self::LEFT_SIDE;
         //0b11111110
-        let knights_l2 = knights & !Self::RIGHT2_SIDE;
+        let knights_l2 = knights & !Self::LEFT2_SIDE;
         (knights_r2 >> 10) | (knights_r2 << 6) |
             (knights_r1 >> 17) | (knights_r1 << 15) |
             (knights_l1 >> 15) | (knights_l1 << 17) |
@@ -196,18 +219,10 @@ impl BitBoard {
     pub const fn diagonal_attack_mask<const COLOUR: bool>(&self) -> u64 {
         let bishops = self.col_diagonal_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let mut ur = (bishops << 7) & !Self::RIGHT_SIDE;
-        let mut ul = (bishops << 9) & !Self::LEFT_SIDE;
-        let mut dr = (bishops >> 9) & !Self::RIGHT_SIDE;
-        let mut dl = (bishops >> 7) & !Self::LEFT_SIDE;
-        let mut i = 0;
-        while i != 6 {
-            ur |= ((ur & !pieces) << 7) & !Self::RIGHT_SIDE;
-            ul |= ((ul & !pieces) << 9) & !Self::LEFT_SIDE;
-            dr |= ((dr & !pieces) >> 9) & !Self::RIGHT_SIDE;
-            dl |= ((dl & !pieces) >> 7) & !Self::LEFT_SIDE;
-            i += 1;
-        }
+        let ur = Self::sliding_mask::<{Direction::Left}>(bishops, 7, pieces, Self::LEFT_SIDE);
+        let ul = Self::sliding_mask::<{Direction::Left}>(bishops, 9, pieces, Self::RIGHT_SIDE);
+        let dr = Self::sliding_mask::<{Direction::Right}>(bishops, 9, pieces, Self::LEFT_SIDE);
+        let dl = Self::sliding_mask::<{Direction::Right}>(bishops, 7, pieces, Self::RIGHT_SIDE);
         ur | ul | dr | dl
     }
 
@@ -234,18 +249,10 @@ impl BitBoard {
     pub const fn ortho_attack_mask<const COLOUR: bool>(&self) -> u64 {
         let rooks = self.col_ortho_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let mut r = (rooks >> 1) & !Self::RIGHT_SIDE;
-        let mut l = (rooks << 1) & !Self::LEFT_SIDE;
-        let mut u = rooks << 8; // no need to bounds check as number will become zero if it goes off board
-        let mut d = rooks >> 8;
-        let mut i = 0;
-        while i != 6 {
-            r |= ((r & !pieces) >> 1) & !Self::RIGHT_SIDE;
-            l |= ((l & !pieces) << 1) & !Self::LEFT_SIDE;
-            u |= (u & !pieces) << 8;
-            d |= (d & !pieces) >> 8;
-            i += 1;
-        }
+        let r = Self::sliding_mask::<{Direction::Left}>(rooks, 1, pieces, Self::LEFT_SIDE);
+        let l = Self::sliding_mask::<{Direction::Right}>(rooks, 1, pieces, Self::RIGHT_SIDE);
+        let u = Self::sliding_mask::<{Direction::Left}>(rooks, 8, pieces, 0);
+        let d = Self::sliding_mask::<{Direction::Right}>(rooks, 8, pieces, 0);
         r | l | u | d
     }
 
@@ -273,7 +280,7 @@ impl BitBoard {
         let u = kings << 8;
         let d = kings >> 8;
         let mast =  kings | u | d;
-        ((mast >> 1) & !Self::RIGHT_SIDE) | ((mast << 1) & !Self::LEFT_SIDE) | u | d
+        ((mast >> 1) & !Self::LEFT_SIDE) | ((mast << 1) & !Self::RIGHT_SIDE) | u | d
     }
 
     #[inline(always)]
@@ -286,25 +293,112 @@ impl BitBoard {
     }
 
     #[inline(always)]
+    pub const fn check_mask<const COLOUR: bool>(&self) -> u64
+    where BoolExists<{!COLOUR}>: Sized {
+        let kings = self.col_king_mask::<COLOUR>();
+        let pieces = self.piece_mask();
+        let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
+        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
+        let mut mask = u64::MAX;
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 1, pieces, Self::RIGHT_SIDE);
+        if r1 & other_ortho != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 1, pieces, Self::LEFT_SIDE);
+        if r1 & other_ortho != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 8, pieces, 0);
+        if r1 & other_ortho != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 8, pieces, 0);
+        if r1 & other_ortho != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 9, pieces, Self::RIGHT_SIDE);
+        if r1 & other_diag != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 9, pieces, Self::LEFT_SIDE);
+        if r1 & other_diag != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 7, pieces, Self::RIGHT_SIDE);
+        if r1 & other_diag != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 7, pieces, Self::LEFT_SIDE);
+        if r1 & other_diag != 0 {
+            mask &= r1;
+        }
+
+        mask
+    }
+
+    #[inline(always)]
     pub const fn pin_mask<const COLOUR: bool>(&self) -> u64
     where BoolExists<{!COLOUR}>: Sized {
         let kings = self.col_king_mask::<COLOUR>();
         let pieces = self.piece_mask();
         let own_pieces = self.col_piece_mask::<COLOUR>();
-        let mut r1 = (kings >> 1) & !Self::RIGHT_SIDE;
-        let mut i = 0;
-        while i != 6 {
-            r1 |= ((r1 & !pieces) >> 1) & !Self::RIGHT_SIDE;
-            i += 1;
+        let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
+        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 1, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 1, pieces, Self::RIGHT_SIDE);
+        let mut mask = 0;
+        if r2 & other_ortho != 0 {
+            mask |= r1 | r2;
         }
-        let mut r2 = ((r1 & own_pieces) >> 1) & !Self::RIGHT_SIDE;
-        let mut i = 0;
-        while i != 5 {
-            r2 |= ((r2 & !pieces) >> 1) & !Self::RIGHT_SIDE;
-            i += 1;
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 1, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 1, pieces, Self::LEFT_SIDE);
+        if r2 & other_ortho != 0 {
+            mask |= r1 | r2;
         }
-        let is_pin = self.col_ortho_mask::<{!COLOUR}>();
-        let mask = (r1 | r2) & (is_pin * 0xff);
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 8, pieces, 0);
+        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 8, pieces, 0);
+        if r2 & other_ortho != 0 {
+            mask |= r1 | r2;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 8, pieces, 0);
+        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 8, pieces, 0);
+        if r2 & other_ortho != 0 {
+            mask |= r1 | r2;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 9, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 9, pieces, Self::RIGHT_SIDE);
+        if r2 & other_diag != 0 {
+            mask |= r1 | r2;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 9, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 9, pieces, Self::LEFT_SIDE);
+        if r2 & other_diag != 0 {
+            mask |= r1 | r2;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 7, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 7, pieces, Self::RIGHT_SIDE);
+        if r2 & other_diag != 0 {
+            mask |= r1 | r2;
+        }
+
+        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 7, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 7, pieces, Self::LEFT_SIDE);
+        if r2 & other_diag != 0 {
+            mask |= r1 | r2;
+        }
 
         mask
     }
@@ -418,6 +512,16 @@ impl ChessGame for BitBoardGame {
     fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
         todo!()
     }
+}
+
+pub fn print_bitmask(mask: u64) {
+    let mut bstr = String::from("");
+    for i in 0..64 {
+        if i % 8 == 0 {bstr.push('\n')}
+        bstr.push(if (mask >> 63 - i) & 1 == 0 {'-'} else {'X'});
+    }
+    println!("{:b}", mask);
+    println!("{}", bstr);
 }
 
 impl Display for BitBoard {

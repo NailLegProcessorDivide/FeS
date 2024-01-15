@@ -1,5 +1,6 @@
 #![feature(generic_const_exprs)]
 #![allow(incomplete_features)]
+#![feature(adt_const_params)]
 
 use board::GameState;
 use game::ChessGame;
