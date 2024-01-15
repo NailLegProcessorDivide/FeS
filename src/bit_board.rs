@@ -460,6 +460,12 @@ impl BitBoard {
 
         mask
     }
+
+    #[inline(always)]
+    pub const fn enemy_or_empty<const COLOUR: bool>(&self) -> u64
+    where BoolExists<{!COLOUR}>: Sized {
+        !self.board[3]
+    }
 }
 
 pub struct BitBoardGame {
@@ -556,6 +562,33 @@ impl ChessGame for BitBoardGame {
             PlayerColour::White => 0u64,
             PlayerColour::Black => u64::MAX,
         };
+
+        if self.turn == PlayerColour::White {
+            let base_mask = self.board.enemy_or_empty::<true>() & self.board.check_mask::<true>();
+
+
+            // things are wrong boo hoo
+            let ortho_attacks = self.board.ortho_attack_mask::<true>() & base_mask;
+            let ortho_pins    = self.board.ortho_pin_mask::<true>();
+            let rooks = ortho_attacks & !ortho_pins;
+            let pin_rooks = ortho_attacks & ortho_pins;
+
+            let diagonal_attacks = self.board.diagonal_attack_mask::<true>() & base_mask;
+            let diagonal_pins = self.board.diagonal_pin_mask::<true>();
+            let bishops = diagonal_attacks & !diagonal_pins;
+            let pin_bishops = diagonal_attacks & diagonal_pins;
+
+            let knight_attacks = self.board.knight_attack_mask::<true>() & base_mask;
+            let knights = knight_attacks & !ortho_pins & !diagonal_pins;
+            let pin_bishops = diagonal_attacks & diagonal_pins;
+
+
+        } else {
+            
+        }
+
+
+
         todo!()
     }
 
