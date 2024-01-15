@@ -37,7 +37,7 @@ pub struct BitBoard {
 }
 
 #[derive(ConstParamTy, PartialEq, Eq)]
-pub enum Direction {
+pub enum Shift {
     Left,
     Right
 }
@@ -100,16 +100,16 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn sliding_mask<const SHIFT_DIR: Direction>(pieces: u64, step: u8, colision: u64, side_mask: u64) -> u64 {
+    pub const fn sliding_mask<const SHIFT_DIR: Shift>(pieces: u64, step: u8, colision: u64, side_mask: u64) -> u64 {
         let mut mask = match SHIFT_DIR {
-            Direction::Left => (pieces << step) & !side_mask,
-            Direction::Right => (pieces >> step) & !side_mask,
+            Shift::Left => (pieces << step) & !side_mask,
+            Shift::Right => (pieces >> step) & !side_mask,
         };
         let mut i = 0;
         while i != 6 {
             mask |= match SHIFT_DIR {
-                Direction::Left => ((mask & !colision) << step) & !side_mask,
-                Direction::Right => ((mask & !colision) >> step) & !side_mask,
+                Shift::Left => ((mask & !colision) << step) & !side_mask,
+                Shift::Right => ((mask & !colision) >> step) & !side_mask,
             };
             i += 1;
         }
@@ -218,10 +218,10 @@ impl BitBoard {
     pub const fn diagonal_attack_mask<const COLOUR: bool>(&self) -> u64 {
         let bishops = self.col_diagonal_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let ur = Self::sliding_mask::<{Direction::Left}>(bishops, 7, pieces, Self::LEFT_SIDE);
-        let ul = Self::sliding_mask::<{Direction::Left}>(bishops, 9, pieces, Self::RIGHT_SIDE);
-        let dr = Self::sliding_mask::<{Direction::Right}>(bishops, 9, pieces, Self::LEFT_SIDE);
-        let dl = Self::sliding_mask::<{Direction::Right}>(bishops, 7, pieces, Self::RIGHT_SIDE);
+        let ur = Self::sliding_mask::<{Shift::Left}>(bishops, 7, pieces, Self::LEFT_SIDE);
+        let ul = Self::sliding_mask::<{Shift::Left}>(bishops, 9, pieces, Self::RIGHT_SIDE);
+        let dr = Self::sliding_mask::<{Shift::Right}>(bishops, 9, pieces, Self::LEFT_SIDE);
+        let dl = Self::sliding_mask::<{Shift::Right}>(bishops, 7, pieces, Self::RIGHT_SIDE);
         ur | ul | dr | dl
     }
 
@@ -248,10 +248,10 @@ impl BitBoard {
     pub const fn ortho_attack_mask<const COLOUR: bool>(&self) -> u64 {
         let rooks = self.col_ortho_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let r = Self::sliding_mask::<{Direction::Left}>(rooks, 1, pieces, Self::LEFT_SIDE);
-        let l = Self::sliding_mask::<{Direction::Right}>(rooks, 1, pieces, Self::RIGHT_SIDE);
-        let u = Self::sliding_mask::<{Direction::Left}>(rooks, 8, pieces, 0);
-        let d = Self::sliding_mask::<{Direction::Right}>(rooks, 8, pieces, 0);
+        let r = Self::sliding_mask::<{Shift::Left}>(rooks, 1, pieces, Self::RIGHT_SIDE);
+        let l = Self::sliding_mask::<{Shift::Right}>(rooks, 1, pieces, Self::LEFT_SIDE);
+        let u = Self::sliding_mask::<{Shift::Left}>(rooks, 8, pieces, 0);
+        let d = Self::sliding_mask::<{Shift::Right}>(rooks, 8, pieces, 0);
         r | l | u | d
     }
 
@@ -299,48 +299,47 @@ impl BitBoard {
         let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
         let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
         let mut mask = u64::MAX;
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 1, pieces, Self::RIGHT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, pieces, Self::LEFT_SIDE);
         if r1 & other_ortho != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 1, pieces, Self::LEFT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 1, pieces, Self::RIGHT_SIDE);
         if r1 & other_ortho != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 8, pieces, 0);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 8, pieces, 0);
         if r1 & other_ortho != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 8, pieces, 0);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 8, pieces, 0);
         if r1 & other_ortho != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 9, pieces, Self::RIGHT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
         if r1 & other_diag != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 9, pieces, Self::LEFT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 9, pieces, Self::RIGHT_SIDE);
         if r1 & other_diag != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 7, pieces, Self::RIGHT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 7, pieces, Self::LEFT_SIDE);
         if r1 & other_diag != 0 {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 7, pieces, Self::LEFT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 7, pieces, Self::RIGHT_SIDE);
         if r1 & other_diag != 0 {
             mask &= r1;
         }
 
         let other_knights = Self::col_knight_mask::<{!COLOUR}>(self);
-
         let knights_r2 = kings & !Self::RIGHT2_SIDE;
         let knights_r1 = kings & !Self::RIGHT_SIDE;
         let knights_l1 = kings & !Self::LEFT_SIDE;
@@ -371,62 +370,90 @@ impl BitBoard {
             mask &= knights_r2 << 10;
         }
 
+        let other_pawns = Self::col_pawn_mask::<{!COLOUR}>(self);
+
+        if COLOUR {
+            if (kings << 9) & !Self::RIGHT_SIDE & other_pawns != 0 {
+                mask &= kings << 9;
+            }
+            if (kings << 7) & !Self::LEFT_SIDE & other_pawns != 0 {
+                mask &= kings << 7;
+            }
+        } else {
+            if (kings >> 7) & !Self::RIGHT_SIDE & other_pawns != 0 {
+                mask &= kings >> 7;
+            }
+            if (kings >> 9) & !Self::LEFT_SIDE & other_pawns != 0 {
+                mask &= kings >> 9;
+            }
+        }
+
         mask
     }
 
     #[inline(always)]
-    pub const fn pin_mask<const COLOUR: bool>(&self) -> u64
+    pub const fn ortho_pin_mask<const COLOUR: bool>(&self) -> u64
     where BoolExists<{!COLOUR}>: Sized {
         let kings = self.col_king_mask::<COLOUR>();
         let pieces = self.piece_mask();
         let own_pieces = self.col_piece_mask::<COLOUR>();
         let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
-        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 1, pieces, Self::RIGHT_SIDE);
-        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 1, pieces, Self::RIGHT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 1, pieces, Self::LEFT_SIDE);
         let mut mask = 0;
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 1, pieces, Self::LEFT_SIDE);
-        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 1, pieces, Self::LEFT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 1, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 1, pieces, Self::RIGHT_SIDE);
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 8, pieces, 0);
-        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 8, pieces, 0);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 8, pieces, 0);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 8, pieces, 0);
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 8, pieces, 0);
-        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 8, pieces, 0);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 8, pieces, 0);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 8, pieces, 0);
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 9, pieces, Self::RIGHT_SIDE);
-        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 9, pieces, Self::RIGHT_SIDE);
+        mask
+    }
+
+    pub const fn diagonal_pin_mask<const COLOUR: bool>(&self) -> u64
+    where BoolExists<{!COLOUR}>: Sized {
+        let kings = self.col_king_mask::<COLOUR>();
+        let pieces = self.piece_mask();
+        let own_pieces = self.col_piece_mask::<COLOUR>();
+        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 9, pieces, Self::LEFT_SIDE);
+        let mut mask = 0;
+
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 9, pieces, Self::LEFT_SIDE);
-        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 9, pieces, Self::LEFT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 9, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 9, pieces, Self::RIGHT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Left}>(kings, 7, pieces, Self::RIGHT_SIDE);
-        let r2 = Self::sliding_mask::<{Direction::Left}>(r1 & own_pieces, 7, pieces, Self::RIGHT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 7, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 7, pieces, Self::LEFT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
 
-        let r1 = Self::sliding_mask::<{Direction::Right}>(kings, 7, pieces, Self::LEFT_SIDE);
-        let r2 = Self::sliding_mask::<{Direction::Right}>(r1 & own_pieces, 7, pieces, Self::LEFT_SIDE);
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 7, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 7, pieces, Self::RIGHT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
