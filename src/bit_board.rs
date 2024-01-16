@@ -42,6 +42,11 @@ pub enum Shift {
     Right
 }
 
+pub trait OnMove {
+    fn on_move<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
+}
+
 impl BitBoard {
     const LEFT_SIDE: u64 = 0x8080808080808080;
     const RIGHT_SIDE: u64 = 0x0101010101010101;
@@ -90,6 +95,11 @@ impl BitBoard {
     #[inline(always)]
     pub const fn col_piece_mask<const COLOUR: bool>(&self) -> u64 {
         self.piece_mask() & self.colour_mask::<COLOUR>()
+    }
+
+    #[inline(always)]
+    pub const fn enemy_or_empty<const COLOUR: bool>(&self) -> u64 {
+        !self.col_piece_mask::<COLOUR>()
     }
 
     /// 1 if piece (incl. special enpassant square)
@@ -190,6 +200,21 @@ impl BitBoard {
         let knights_l1 = knights & !Self::LEFT_SIDE;
         //0b11111110
         let knights_l2 = knights & !Self::LEFT2_SIDE;
+        let inner = (knights_r1 >> 1) | (knights_l1 << 1);
+        let outer = (knights_r2 >> 2) | (knights_l2 << 2);
+        (outer << 8) | (outer >> 8) | (inner << 16) | (inner >> 16)
+    }
+
+    #[inline(always)]
+    pub const fn knight_like_mask<const COLOUR: bool>(&self, pieces: u64) -> u64 {
+        //0b11111100
+        let knights_r2 = pieces & !Self::RIGHT2_SIDE;
+        //0b11111110
+        let knights_r1 = pieces & !Self::RIGHT_SIDE;
+        //0b11111100
+        let knights_l1 = pieces & !Self::LEFT_SIDE;
+        //0b11111110
+        let knights_l2 = pieces & !Self::LEFT2_SIDE;
         let inner = (knights_r1 >> 1) | (knights_l1 << 1);
         let outer = (knights_r2 >> 2) | (knights_l2 << 2);
         (outer << 8) | (outer >> 8) | (inner << 16) | (inner >> 16)
@@ -462,10 +487,104 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn enemy_or_empty<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
-        !self.board[3]
+    pub fn gen_pawn_moves<Mov: OnMove>(&self, on_move: &mut Mov) {
+        //call on_move for every legal_move
     }
+
+    #[inline(always)]
+    pub fn gen_knight_moves<const TURN: bool, const EP: bool, const WQ: bool,
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov) 
+    where BoolExists<{!TURN}>: Sized {
+        let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
+        let ortho_pins    = self.ortho_pin_mask::<TURN>();
+        let diagonal_pins = self.diagonal_pin_mask::<TURN>();
+
+        let mut knights = self.col_knight_mask::<TURN>() & !ortho_pins & !diagonal_pins;
+        while knights != 0 {
+            let from = knights & !(knights - 1);
+            let from_ind = from.trailing_zeros() as u8;
+            let mut to_mask = self.knight_like_mask::<TURN>(from & self.col_knight_mask::<TURN>()) & base_mask;
+            while to_mask != 0 {
+                let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                on_move.on_move::<TURN, EP, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+                to_mask &= to_mask - 1;
+            }
+            knights &= knights - 1;
+        }
+    }
+
+    #[inline(always)]
+    pub fn gen_diagonal_moves<const TURN: bool, const EP: bool, const WQ: bool,
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov) 
+    where BoolExists<{!TURN}>: Sized {
+        let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
+        let ortho_pins    = self.ortho_pin_mask::<TURN>();
+        let diagonal_pins = self.diagonal_pin_mask::<TURN>();
+
+        let mut bishops = self.col_diagonal_mask::<TURN>();
+        while bishops != 0 {
+            let from = bishops & !(bishops - 1);
+            let from_ind = from.trailing_zeros() as u8;
+            // let mut to_mask = self.diagonal_attack_mask::<TURN>(from & self.col_diagonal_mask::<TURN>()) & base_mask;
+            // while to_mask != 0 {
+            //     let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+            //     on_move.on_move::<TURN, EP, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+            //     to_mask &= to_mask - 1;
+            // }
+            // bishops &= bishops - 1;
+        }
+    }
+
+    #[inline(always)]
+    pub fn gen_ortho_moves<Mov: OnMove>(&self, on_move: &mut Mov) {
+        //call on_move for every legal_move
+    }
+
+    #[inline(always)]
+    pub fn gen_king_moves<Mov: OnMove>(&self, on_move: &mut Mov) {
+        //call on_move for every legal_move
+    }
+
+
+
+
+    // if self.turn == PlayerColour::White {
+    //     let base_mask = self.board.enemy_or_empty::<true>() & self.board.check_mask::<true>();
+
+    //     let ortho_pins    = self.board.ortho_pin_mask::<true>();
+    //     let diagonal_pins = self.board.diagonal_pin_mask::<true>();
+
+    //     let ortho_attacks = self.board.ortho_attack_mask::<true>() & base_mask;
+    //     let rooks =  if diagonal_pins != 0 {0} else {ortho_attacks & !ortho_pins};
+    //     let pin_rooks = ortho_attacks & ortho_pins;
+
+    //     print_bitmask(rooks);
+
+    //     let diagonal_attacks = self.board.diagonal_attack_mask::<true>() & base_mask;
+    //     let bishops = if ortho_pins != 0 {0} else {ortho_attacks & !ortho_pins};
+    //     let pin_bishops = diagonal_attacks & diagonal_pins;
+
+    //     print_bitmask(ortho_pins);
+
+    //     let mut ks = self.board.col_knight_mask::<true>() & !ortho_pins & !diagonal_pins;
+        
+    //     let mut c: i64 = 0;
+    //     while ks != 0 {
+    //         poo = self.board.knight_attack_mask(ks & !(ks - 1)) & base_mask;
+            
+    //         ks &= ks - 1;
+    //     }
+
+    //     let knight_attacks = self.board.knight_attack_mask::<true>() & base_mask;
+    //     let knights = knight_attacks & 
+
+    //     print_bitmask(knights);
+
+    // } else {
+        
+    // }
+
+
 }
 
 pub struct BitBoardGame {
@@ -562,33 +681,6 @@ impl ChessGame for BitBoardGame {
             PlayerColour::White => 0u64,
             PlayerColour::Black => u64::MAX,
         };
-
-        if self.turn == PlayerColour::White {
-            let base_mask = self.board.enemy_or_empty::<true>() & self.board.check_mask::<true>();
-
-
-            // things are wrong boo hoo
-            let ortho_attacks = self.board.ortho_attack_mask::<true>() & base_mask;
-            let ortho_pins    = self.board.ortho_pin_mask::<true>();
-            let rooks = ortho_attacks & !ortho_pins;
-            let pin_rooks = ortho_attacks & ortho_pins;
-
-            let diagonal_attacks = self.board.diagonal_attack_mask::<true>() & base_mask;
-            let diagonal_pins = self.board.diagonal_pin_mask::<true>();
-            let bishops = diagonal_attacks & !diagonal_pins;
-            let pin_bishops = diagonal_attacks & diagonal_pins;
-
-            let knight_attacks = self.board.knight_attack_mask::<true>() & base_mask;
-            let knights = knight_attacks & !ortho_pins & !diagonal_pins;
-            let pin_bishops = diagonal_attacks & diagonal_pins;
-
-
-        } else {
-            
-        }
-
-
-
         todo!()
     }
 
