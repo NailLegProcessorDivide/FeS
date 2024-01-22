@@ -31,6 +31,7 @@ pub struct BoolExists<const _N: bool>{}
 /// ?101 => knight
 /// ?110 => castleable rook
 /// ?111 => king
+#[derive(Clone)]
 pub struct BitBoard {
     // Index that corresponds to each bit: 0b3210
     board: [u64; 4]
@@ -44,10 +45,23 @@ pub enum Shift {
 
 pub trait OnMove {
     fn on_move<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
-    fn on_ep_move();
-    fn on_ks_castle();
-    fn on_qs_castle();
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
+        where BoolExists<{!TURN}>: Sized;
+    fn on_rook_move<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
+        where BoolExists<{!TURN}>: Sized;
+    fn on_king_move<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
+        where BoolExists<{!TURN}>: Sized;
+    fn on_ep_move<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
+        where BoolExists<{!TURN}>: Sized;
+    fn on_qs_castle<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
+        where BoolExists<{!TURN}>: Sized;
+    fn on_ks_castle<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
+        where BoolExists<{!TURN}>: Sized;
 }
 
 impl BitBoard {
@@ -511,13 +525,15 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub fn gen_pawn_moves<Mov: OnMove>(&self, on_move: &mut Mov) {
+    pub fn gen_pawn_moves<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
+        where BoolExists<{!TURN}>: Sized {
         //call on_move for every legal_move
     }
 
     #[inline(always)]
     pub fn gen_knight_moves<const TURN: bool, const EP: bool, const WQ: bool,
-    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov) 
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
         let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
         let ortho_pins = self.ortho_pin_mask::<TURN>();
@@ -539,7 +555,7 @@ impl BitBoard {
 
     #[inline(always)]
     pub fn gen_diagonal_moves<const TURN: bool, const EP: bool, const WQ: bool,
-    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov) 
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
         let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
         let ortho_pins = self.ortho_pin_mask::<TURN>();
@@ -547,7 +563,7 @@ impl BitBoard {
 
         let mut free_attacks = self.col_diagonal_mask::<TURN>() & !diagonal_pins & !ortho_pins;
         let mut pin_attacks = self.col_diagonal_mask::<TURN>() & diagonal_pins;
-        
+
         while free_attacks != 0 {
             let from = free_attacks & !(free_attacks - 1);
             let from_ind = from.trailing_zeros() as u8;
@@ -575,7 +591,7 @@ impl BitBoard {
 
     #[inline(always)]
     pub fn gen_ortho_moves<const TURN: bool, const EP: bool, const WQ: bool,
-    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov) 
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
         let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
         let ortho_pins = self.ortho_pin_mask::<TURN>();
@@ -583,7 +599,7 @@ impl BitBoard {
 
         let mut free_attacks = self.col_ortho_mask::<TURN>() & !diagonal_pins & !ortho_pins;
         let mut pin_attacks = self.col_ortho_mask::<TURN>() & diagonal_pins;
-        
+
         while free_attacks != 0 {
             let from = free_attacks & !(free_attacks - 1);
             let from_ind = from.trailing_zeros() as u8;
@@ -610,10 +626,22 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub fn gen_king_moves<Mov: OnMove>(&self, on_move: &mut Mov) {
+    pub fn gen_king_moves<const TURN: bool, const EP: bool, const WQ: bool,
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
+    where BoolExists<{!TURN}>: Sized {
         //call on_move for every legal_move
     }
 
+    #[inline(always)]
+    pub fn gen_moves<const TURN: bool, const EP: bool, const WQ: bool,
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
+    where BoolExists<{!TURN}>: Sized {
+        self.gen_pawn_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_knight_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_diagonal_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_ortho_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_king_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+    }
 }
 
 pub struct BitBoardGame {

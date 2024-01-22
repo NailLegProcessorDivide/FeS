@@ -10,6 +10,7 @@ use crate::game::Move;
 pub mod board;
 pub mod bit_board;
 pub mod notation;
+pub mod perft_bb_mover;
 pub mod pgn;
 pub mod piece;
 pub mod game;
