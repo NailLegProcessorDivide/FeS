@@ -45,23 +45,19 @@ pub enum Shift {
 
 pub trait OnMove {
     fn on_move<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
-        where BoolExists<{!TURN}>: Sized;
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
     fn on_rook_move<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
-        where BoolExists<{!TURN}>: Sized;
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
     fn on_king_move<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
-        where BoolExists<{!TURN}>: Sized;
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
     fn on_ep_move<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
-        where BoolExists<{!TURN}>: Sized;
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
+    fn on_pawn_push2<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard);
     fn on_qs_castle<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
-        where BoolExists<{!TURN}>: Sized;
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard);
     fn on_ks_castle<const TURN: bool, const EP: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8)
-        where BoolExists<{!TURN}>: Sized;
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard);
 }
 
 impl BitBoard {
@@ -78,14 +74,21 @@ impl BitBoard {
         }
     }
 
-    /// copy cell `old` to cell `new`
+    /// copy cell `from` to cell `to`
     #[inline(always)]
-    pub fn dupe(&mut self, old: u8, new: u8) {
+    pub fn dupe(&mut self, from: u8, to: u8) {
         for line in self.board.iter_mut() {
-            let tmp = (*line >> old) & 1;
-            *line &= !(1 << new);
-            *line |= !(tmp << new);
+            let tmp = (*line >> from) & 1;
+            *line &= !(1 << to);
+            *line |= !(tmp << to);
         }
+    }
+
+    /// move piece
+    #[inline(always)]
+    pub fn mov(&mut self, from: u8, to: u8) {
+        self.dupe(from, to);
+        self.clear(from);
     }
 
     /// 1 if white
@@ -532,6 +535,13 @@ impl BitBoard {
     }
 
     #[inline(always)]
+    pub fn gen_pawn_moves_with_ep<const TURN: bool, const EP: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, ep: u8, on_move: &mut Mov)
+        where BoolExists<{!TURN}>: Sized {
+        //call on_move for every legal_move
+    }
+
+    #[inline(always)]
     pub fn gen_knight_moves<const TURN: bool, const EP: bool, const WQ: bool,
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
@@ -637,6 +647,17 @@ impl BitBoard {
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
         self.gen_pawn_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_knight_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_diagonal_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_ortho_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+        self.gen_king_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
+    }
+
+    #[inline(always)]
+    pub fn gen_moves_with_wp<const TURN: bool, const EP: bool, const WQ: bool,
+    const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, ep: u8, on_move: &mut Mov)
+    where BoolExists<{!TURN}>: Sized {
+        self.gen_pawn_moves_with_ep::<TURN, EP, WQ, WK, BQ, BK, Mov>(ep, on_move);
         self.gen_knight_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
         self.gen_diagonal_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
         self.gen_ortho_moves::<TURN, EP, WQ, WK, BQ, BK, Mov>(on_move);
