@@ -21,7 +21,7 @@ pub struct BoolExists<const _N: bool>{}
 
 /// Column-wise representation of chess board (if you stack each u64 on top of each other)
 /// 0000 => none
-/// 1000 => enpassant square
+/// 1000 => --unused--
 /// 1??? => white
 /// 0??? => black
 /// ?001 => bishop
@@ -29,7 +29,7 @@ pub struct BoolExists<const _N: bool>{}
 /// ?011 => queen
 /// ?100 => pawn
 /// ?101 => knight
-/// ?110 => castleable rook
+/// ?110 => --unused--
 /// ?111 => king
 #[derive(Clone)]
 pub struct BitBoard {
@@ -80,7 +80,7 @@ impl BitBoard {
         for line in self.board.iter_mut() {
             let tmp = (*line >> from) & 1;
             *line &= !(1 << to);
-            *line |= !(tmp << to);
+            *line |= tmp << to;
         }
     }
 
@@ -309,7 +309,7 @@ impl BitBoard {
     /// 0 if no rook like
     #[inline(always)]
     pub const fn ortho_mask(&self) -> u64 {
-        self.board[1] & !(self.board[0] & self.board[2])
+        self.board[1] & !self.board[2]
     }
 
     /// colour 0 = white, u64::MAX = black
@@ -327,12 +327,7 @@ impl BitBoard {
     #[inline(always)]
     pub const fn ortho_attack_mask<const COLOUR: bool>(&self) -> u64 {
         let rooks = self.col_ortho_mask::<COLOUR>();
-        let pieces = self.piece_mask();
-        let r = Self::sliding_mask::<{Shift::Left}>(rooks, 1, pieces, Self::RIGHT_SIDE);
-        let l = Self::sliding_mask::<{Shift::Right}>(rooks, 1, pieces, Self::LEFT_SIDE);
-        let u = Self::sliding_mask::<{Shift::Left}>(rooks, 8, pieces, 0);
-        let d = Self::sliding_mask::<{Shift::Right}>(rooks, 8, pieces, 0);
-        r | l | u | d
+        self.ortho_like_attack_mask(rooks)
     }
 
     #[inline(always)]
@@ -589,61 +584,70 @@ impl BitBoard {
     pub fn gen_pawn_moves<const TURN: bool, const WQ: bool,
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
-        let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
+        let check_mask = self.check_mask::<TURN>();
         let hor_pins = self.hor_pin_mask::<TURN>();
         let ortho_pins = self.ortho_pin_mask::<TURN>();
         let lr_pins = self.lr_pin_mask::<TURN>();
         let rl_pins = self.rl_pin_mask::<TURN>();
         let diagonal_pins = self.diagonal_pin_mask::<TURN>();
-        let empty = !self.piece_mask();
-        let enemy = self.col_piece_mask::<{!TURN}>();
+        let empty = !self.piece_mask() & check_mask;
+        let enemy = self.col_piece_mask::<{!TURN}>() & check_mask;
 
-        let base_pawns = self.col_pawn_mask::<TURN>() & base_mask;
+        let base_pawns = self.col_pawn_mask::<TURN>();
         let lr_pawns = base_pawns & !rl_pins & !ortho_pins;
         let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
         let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
         if TURN {
-            let up1 = (empty >> 8) & up_pawns;
-            let up2 = (empty >> 16) & up1 & (0xff << 8);
-            let lr = (enemy >> 7) & lr_pawns & !Self::LEFT_SIDE;
-            let rl = (enemy >> 9) & rl_pawns & !Self::RIGHT_SIDE;
-            if up1 != 0 {
+            let mut up1 = (empty >> 8) & up_pawns;
+            let mut up2 = (empty >> 16) & up1 & (0xff << 8);
+            let mut lr = (enemy >> 7) & lr_pawns & !Self::RIGHT_SIDE;
+            let mut rl = (enemy >> 9) & rl_pawns & !Self::LEFT_SIDE;
+            while up1 != 0 {
                 let from_idx = up1.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 8);
+                up1 &= up1 - 1;
             }
-            if up2 != 0 {
+            while up2 != 0 {
                 let from_idx = up2.trailing_zeros() as u8;
                 on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
+                up2 &= up2 - 1;
             }
-            if lr != 0 {
+            while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
+                lr &= lr - 1;
             }
-            if rl != 0 {
+            while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
+                rl &= rl - 1;
             }
         }
         else {
-            let up1 = (empty << 8) & up_pawns;
-            let up2 = (empty << 16) & up1 & (0xff << (8 * 6));
-            let lr = (enemy << 7) & lr_pawns & !Self::RIGHT_SIDE;
-            let rl = (enemy << 9) & rl_pawns & !Self::LEFT_SIDE;
-            if up1 != 0 {
+            let mut up1 = (empty << 8) & up_pawns;
+            let mut up2 = (empty << 16) & up1 & (0xff << (8 * 6));
+            let mut lr = (enemy << 7) & lr_pawns & !Self::LEFT_SIDE;
+            let mut rl = (enemy << 9) & rl_pawns & !Self::RIGHT_SIDE;
+            while up1 != 0 {
                 let from_idx = up1.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 8);
+                up1 &= up1 - 1;
             }
-            if up2 != 0 {
+            while up2 != 0 {
+                // println!("up2 {:016x}", up2);
                 let from_idx = up2.trailing_zeros() as u8;
                 on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
+                up2 &= up2 - 1;
             }
-            if lr != 0 {
+            while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
+                lr &= lr - 1;
             }
-            if rl != 0 {
+            while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
+                rl &= rl - 1;
             }
         }
     }
@@ -652,7 +656,7 @@ impl BitBoard {
     pub fn gen_pawn_moves_with_ep<const TURN: bool, const WQ: bool,
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov, sq: u8)
     where BoolExists<{!TURN}>: Sized {
-        let base_mask = self.enemy_or_empty::<TURN>() & self.check_mask::<TURN>();
+        let base_mask = self.check_mask::<TURN>();
         let hor_pins = self.hor_pin_mask::<TURN>();
         let ortho_pins = self.ortho_pin_mask::<TURN>();
         let lr_pins = self.lr_pin_mask::<TURN>();
@@ -667,63 +671,71 @@ impl BitBoard {
         let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
         let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
         if TURN {
-            let up1 = (empty >> 8) & up_pawns;
-            let up2 = (empty >> 16) & up1 & (0xff << 8);
-            let lr = (enemy >> 7) & lr_pawns & !Self::LEFT_SIDE;
-            let rl = (enemy >> 9) & rl_pawns & !Self::RIGHT_SIDE;
-            if up1 != 0 {
+            let mut up1 = (empty >> 8) & up_pawns;
+            let mut up2 = (empty >> 16) & up1 & (0xff << 8);
+            let mut lr = (enemy >> 7) & lr_pawns & !Self::RIGHT_SIDE;
+            let mut rl = (enemy >> 9) & rl_pawns & !Self::LEFT_SIDE;
+            while up1 != 0 {
                 let from_idx = up1.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 8);
+                up1 &= up1 - 1;
             }
-            if up2 != 0 {
+            while up2 != 0 {
                 let from_idx = up2.trailing_zeros() as u8;
                 on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
+                up2 &= up2 - 1;
             }
-            if lr != 0 {
+            while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
                 if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx + 7) as u64 != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
                 }
+                lr &= lr - 1;
             }
-            if rl != 0 {
+            while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
                 if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx + 9) as u64 != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
                 }
+                rl &= rl - 1;
             }
         }
         else {
-            let up1 = (empty << 8) & up_pawns;
-            let up2 = (empty << 16) & up1 & (0xff << (8 * 6));
-            let lr = (enemy << 7) & lr_pawns & !Self::RIGHT_SIDE;
-            let rl = (enemy << 9) & rl_pawns & !Self::LEFT_SIDE;
-            if up1 != 0 {
+            let mut up1 = (empty << 8) & up_pawns;
+            let mut up2 = (empty << 16) & up1 & (0xff << (8 * 6));
+            let mut lr = (enemy << 7) & lr_pawns & !Self::LEFT_SIDE;
+            let mut rl = (enemy << 9) & rl_pawns & !Self::RIGHT_SIDE;
+            while up1 != 0 {
                 let from_idx = up1.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 8);
+                up1 &= up1 - 1;
             }
-            if up2 != 0 {
+            while up2 != 0 {
                 let from_idx = up2.trailing_zeros() as u8;
                 on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
+                up2 &= up2 - 1;
             }
-            if lr != 0 {
+            while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
                 if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx - 7) as u64 != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
                 }
+                lr &= lr - 1;
             }
-            if rl != 0 {
+            while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
                 if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx - 9) as u64 != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
                 }
+                rl &= rl - 1;
             }
         }
     }
@@ -738,11 +750,10 @@ impl BitBoard {
 
         let mut knights = self.col_knight_mask::<TURN>() & !ortho_pins & !diagonal_pins;
         while knights != 0 {
-            let from = knights & !(knights - 1);
-            let from_idx = from.trailing_zeros() as u8;
-            let mut to_mask = self.knight_like_attack_mask(from & self.col_knight_mask::<TURN>()) & base_mask;
+            let from_idx = knights.trailing_zeros() as u8;
+            let mut to_mask = self.knight_like_attack_mask(1 << from_idx) & base_mask;
             while to_mask != 0 {
-                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
@@ -762,11 +773,10 @@ impl BitBoard {
         let mut pin_bishops = self.col_diagonal_mask::<TURN>() & diagonal_pins;
 
         while free_bishops != 0 {
-            let from = free_bishops & !(free_bishops - 1);
-            let from_idx = from.trailing_zeros() as u8;
-            let mut to_mask = self.diagonal_like_attack_mask(from & self.col_diagonal_mask::<TURN>()) & base_mask;
+            let from_idx = free_bishops.trailing_zeros() as u8;
+            let mut to_mask = self.diagonal_like_attack_mask(1 << from_idx) & base_mask;
             while to_mask != 0 {
-                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
@@ -774,11 +784,10 @@ impl BitBoard {
         }
 
         while pin_bishops != 0 {
-            let from = pin_bishops & !(pin_bishops - 1);
-            let from_idx = from.trailing_zeros() as u8;
-            let mut to_mask = self.diagonal_like_attack_mask(from & self.col_diagonal_mask::<TURN>()) & base_mask;
+            let from_idx = pin_bishops.trailing_zeros() as u8;
+            let mut to_mask = self.diagonal_like_attack_mask(1 << from_idx) & base_mask;
             while to_mask != 0 {
-                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
@@ -798,11 +807,10 @@ impl BitBoard {
         let mut pin_rooks = self.col_ortho_mask::<TURN>() & diagonal_pins;
 
         while free_rooks != 0 {
-            let from = free_rooks & !(free_rooks - 1);
-            let from_idx = from.trailing_zeros() as u8;
-            let mut to_mask = self.ortho_like_attack_mask(from & self.col_ortho_mask::<TURN>()) & base_mask;
+            let from_idx = free_rooks.trailing_zeros() as u8;
+            let mut to_mask = self.ortho_like_attack_mask(1 << from_idx) & base_mask;
             while to_mask != 0 {
-                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
@@ -810,11 +818,10 @@ impl BitBoard {
         }
 
         while pin_rooks != 0 {
-            let from = pin_rooks & !(pin_rooks - 1);
-            let from_idx = from.trailing_zeros() as u8;
-            let mut to_mask = self.ortho_like_attack_mask(from & self.col_ortho_mask::<TURN>()) & base_mask;
+            let from_idx = pin_rooks.trailing_zeros() as u8;
+            let mut to_mask = self.ortho_like_attack_mask(1 << from_idx) & base_mask;
             while to_mask != 0 {
-                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
@@ -830,10 +837,10 @@ impl BitBoard {
         let base_mask = self.enemy_or_empty::<TURN>() & !other_attacks;
         let king = self.col_king_mask::<TURN>();
 
-        let from_idx = king.trailing_zeros() as u8;  
+        let from_idx = king.trailing_zeros() as u8;
         let mut to_mask = self.king_attack_mask::<TURN>() & base_mask;
         while to_mask != 0 {
-            let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+            let to_idx = to_mask.trailing_zeros() as u8;
             on_move.on_king_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
             to_mask &= to_mask - 1;
         }
@@ -868,15 +875,21 @@ impl BitBoard {
     }
 }
 
+#[derive(Clone)]
 pub struct BitBoardGame {
     pub board: BitBoard,
-    turn: PlayerColour,
+    turn: bool,
+    white_qs: bool,
+    white_ks: bool,
+    black_qs: bool,
+    black_ks: bool,
+    ep: Option<u8>,
 }
 
 impl ChessGame for BitBoardGame {
-    type Move = BBMove;
+    type Move = BitBoardGame;
 
-    type UnMove = BitBoard;
+    type UnMove = BitBoardGame;
 
     fn new() -> Self {
         todo!()
@@ -886,8 +899,8 @@ impl ChessGame for BitBoardGame {
         let mut fen_parts = fen.trim().split(" ");
         let fenboard = fen_parts.next()?;
         let turn = match fen_parts.next()? {
-            "w" => PlayerColour::White,
-            "b" => PlayerColour::Black,
+            "w" => true,
+            "b" => false,
             _ => return None
         };
 
@@ -918,22 +931,12 @@ impl ChessGame for BitBoardGame {
             }
 
             let mut piece_idx = match c.to_ascii_uppercase() {
-                'P' => { 0b100 }
-                'N' => { 0b101 }
-                'B' => { 0b001 }
-                'R' => {
-                    if counter == 0  && black_qs_castle ||
-                        counter == 7  && black_ks_castle ||
-                        counter == 56 && white_qs_castle ||
-                        counter == 63 && white_ks_castle {
-                        0b110
-                    }
-                    else {
-                        0b010
-                    }
-                }
-                'Q' => { 0b011 }
-                'K' => { 0b111 }
+                'P' => 0b100,
+                'N' => 0b101,
+                'B' => 0b001,
+                'R' => 0b010,
+                'Q' => 0b011,
+                'K' => 0b111,
                 _ => return None
             };
             piece_idx |= if c.is_ascii_uppercase() {0b1000} else {0};
@@ -942,12 +945,13 @@ impl ChessGame for BitBoardGame {
         }
 
         match enpassant_col {
-            Some(x) => board[0] |= 1 << (if turn == PlayerColour::White {24} else {48} + x),
+            Some(x) => board[0] |= 1 << (if turn {24} else {48} + x),
             None => {}
         }
 
         if counter == 64 {
-            Some(BitBoardGame { board: BitBoard { board }, turn})
+            Some(BitBoardGame { board: BitBoard { board }, turn, white_qs: true,
+                     white_ks: true, black_qs: true, black_ks: true, ep: None })
         } else {
             None
         }
@@ -958,19 +962,84 @@ impl ChessGame for BitBoardGame {
     }
 
     fn moves(&mut self) -> Vec<Self::Move> {
-        let col_mask = match self.turn {
-            PlayerColour::White => 0u64,
-            PlayerColour::Black => u64::MAX,
-        };
-        todo!()
+        let mut genny = GenericMoveGenerator { next: Vec::new()};
+        match (self.turn, self.white_qs, self.white_ks, self.black_qs, self.black_ks, self.ep) {
+            (true , true , true , true , true , None)     => self.board.gen_moves::<true , true , true , true , true , GenericMoveGenerator>(&mut genny),
+            (true , true , true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , true , true , GenericMoveGenerator>(&mut genny, ep),
+            (true , true , true , true , false, None)     => self.board.gen_moves::<true , true , true , true , false, GenericMoveGenerator>(&mut genny),
+            (true , true , true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , true , false, GenericMoveGenerator>(&mut genny, ep),
+            (true , true , true , false, true , None)     => self.board.gen_moves::<true , true , true , false, true , GenericMoveGenerator>(&mut genny),
+            (true , true , true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , false, true , GenericMoveGenerator>(&mut genny, ep),
+            (true , true , true , false, false, None)     => self.board.gen_moves::<true , true , true , false, false, GenericMoveGenerator>(&mut genny),
+            (true , true , true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , false, false, GenericMoveGenerator>(&mut genny, ep),
+            (true , true , false, true , true , None)     => self.board.gen_moves::<true , true , false, true , true , GenericMoveGenerator>(&mut genny),
+            (true , true , false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, true , true , GenericMoveGenerator>(&mut genny, ep),
+            (true , true , false, true , false, None)     => self.board.gen_moves::<true , true , false, true , false, GenericMoveGenerator>(&mut genny),
+            (true , true , false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, true , false, GenericMoveGenerator>(&mut genny, ep),
+            (true , true , false, false, true , None)     => self.board.gen_moves::<true , true , false, false, true , GenericMoveGenerator>(&mut genny),
+            (true , true , false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, false, true , GenericMoveGenerator>(&mut genny, ep),
+            (true , true , false, false, false, None)     => self.board.gen_moves::<true , true , false, false, false, GenericMoveGenerator>(&mut genny),
+            (true , true , false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, false, false, GenericMoveGenerator>(&mut genny, ep),
+            (true , false, true , true , true , None)     => self.board.gen_moves::<true , false, true , true , true , GenericMoveGenerator>(&mut genny),
+            (true , false, true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , true , true , GenericMoveGenerator>(&mut genny, ep),
+            (true , false, true , true , false, None)     => self.board.gen_moves::<true , false, true , true , false, GenericMoveGenerator>(&mut genny),
+            (true , false, true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , true , false, GenericMoveGenerator>(&mut genny, ep),
+            (true , false, true , false, true , None)     => self.board.gen_moves::<true , false, true , false, true , GenericMoveGenerator>(&mut genny),
+            (true , false, true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , false, true , GenericMoveGenerator>(&mut genny, ep),
+            (true , false, true , false, false, None)     => self.board.gen_moves::<true , false, true , false, false, GenericMoveGenerator>(&mut genny),
+            (true , false, true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , false, false, GenericMoveGenerator>(&mut genny, ep),
+            (true , false, false, true , true , None)     => self.board.gen_moves::<true , false, false, true , true , GenericMoveGenerator>(&mut genny),
+            (true , false, false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, true , true , GenericMoveGenerator>(&mut genny, ep),
+            (true , false, false, true , false, None)     => self.board.gen_moves::<true , false, false, true , false, GenericMoveGenerator>(&mut genny),
+            (true , false, false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, true , false, GenericMoveGenerator>(&mut genny, ep),
+            (true , false, false, false, true , None)     => self.board.gen_moves::<true , false, false, false, true , GenericMoveGenerator>(&mut genny),
+            (true , false, false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, false, true , GenericMoveGenerator>(&mut genny, ep),
+            (true , false, false, false, false, None)     => self.board.gen_moves::<true , false, false, false, false, GenericMoveGenerator>(&mut genny),
+            (true , false, false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, false, false, GenericMoveGenerator>(&mut genny, ep),
+            (false, true , true , true , true , None)     => self.board.gen_moves::<false, true , true , true , true , GenericMoveGenerator>(&mut genny),
+            (false, true , true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , true , true , GenericMoveGenerator>(&mut genny, ep),
+            (false, true , true , true , false, None)     => self.board.gen_moves::<false, true , true , true , false, GenericMoveGenerator>(&mut genny),
+            (false, true , true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , true , false, GenericMoveGenerator>(&mut genny, ep),
+            (false, true , true , false, true , None)     => self.board.gen_moves::<false, true , true , false, true , GenericMoveGenerator>(&mut genny),
+            (false, true , true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , false, true , GenericMoveGenerator>(&mut genny, ep),
+            (false, true , true , false, false, None)     => self.board.gen_moves::<false, true , true , false, false, GenericMoveGenerator>(&mut genny),
+            (false, true , true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , false, false, GenericMoveGenerator>(&mut genny, ep),
+            (false, true , false, true , true , None)     => self.board.gen_moves::<false, true , false, true , true , GenericMoveGenerator>(&mut genny),
+            (false, true , false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, true , true , GenericMoveGenerator>(&mut genny, ep),
+            (false, true , false, true , false, None)     => self.board.gen_moves::<false, true , false, true , false, GenericMoveGenerator>(&mut genny),
+            (false, true , false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, true , false, GenericMoveGenerator>(&mut genny, ep),
+            (false, true , false, false, true , None)     => self.board.gen_moves::<false, true , false, false, true , GenericMoveGenerator>(&mut genny),
+            (false, true , false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, false, true , GenericMoveGenerator>(&mut genny, ep),
+            (false, true , false, false, false, None)     => self.board.gen_moves::<false, true , false, false, false, GenericMoveGenerator>(&mut genny),
+            (false, true , false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, false, false, GenericMoveGenerator>(&mut genny, ep),
+            (false, false, true , true , true , None)     => self.board.gen_moves::<false, false, true , true , true , GenericMoveGenerator>(&mut genny),
+            (false, false, true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , true , true , GenericMoveGenerator>(&mut genny, ep),
+            (false, false, true , true , false, None)     => self.board.gen_moves::<false, false, true , true , false, GenericMoveGenerator>(&mut genny),
+            (false, false, true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , true , false, GenericMoveGenerator>(&mut genny, ep),
+            (false, false, true , false, true , None)     => self.board.gen_moves::<false, false, true , false, true , GenericMoveGenerator>(&mut genny),
+            (false, false, true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , false, true , GenericMoveGenerator>(&mut genny, ep),
+            (false, false, true , false, false, None)     => self.board.gen_moves::<false, false, true , false, false, GenericMoveGenerator>(&mut genny),
+            (false, false, true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , false, false, GenericMoveGenerator>(&mut genny, ep),
+            (false, false, false, true , true , None)     => self.board.gen_moves::<false, false, false, true , true , GenericMoveGenerator>(&mut genny),
+            (false, false, false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, true , true , GenericMoveGenerator>(&mut genny, ep),
+            (false, false, false, true , false, None)     => self.board.gen_moves::<false, false, false, true , false, GenericMoveGenerator>(&mut genny),
+            (false, false, false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, true , false, GenericMoveGenerator>(&mut genny, ep),
+            (false, false, false, false, true , None)     => self.board.gen_moves::<false, false, false, false, true , GenericMoveGenerator>(&mut genny),
+            (false, false, false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, false, true , GenericMoveGenerator>(&mut genny, ep),
+            (false, false, false, false, false, None)     => self.board.gen_moves::<false, false, false, false, false, GenericMoveGenerator>(&mut genny),
+            (false, false, false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, false, false, GenericMoveGenerator>(&mut genny, ep),
+        }
+        genny.next
     }
 
     fn do_move(&mut self, mov: &Self::Move) -> Self::UnMove {
-        todo!()
+        let un = self.clone();
+        *self = mov.clone();
+        un
     }
 
     fn unmove(&mut self, mov: &Self::UnMove) {
-        todo!()
+        *self = mov.clone()
     }
 
     fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
@@ -1001,9 +1070,10 @@ impl Display for BitBoard {
                 (true ,false,false) => 'p',
                 (true ,false,true ) => 'n',
                 (false,false,true ) => 'b',
-                (_    ,true ,false) => 'r',
+                (false,true ,false) => 'r',
                 (false,true ,true ) => 'q',
-                (true ,true ,true ) => 'k'
+                (true ,true ,true ) => 'k',
+                _ => '#'
             };
 
             bstr.push(if is_white {c.to_ascii_uppercase()} else {c});
@@ -1015,18 +1085,126 @@ impl Display for BitBoard {
     }
 }
 
-impl Display for BBMove {
+impl Display for BitBoardGame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.packed))
+        f.write_fmt(format_args!("{}", self.board))
     }
 }
 
-impl Move for BBMove {
+impl Move for BitBoardGame {
     fn to_uci(&self) -> String {
-        let ox = ('a' as u8 + (self.packed & 7) as u8) as char;
-        let oy = ('1' as u8 + ((self.packed >> 3) & 7) as u8) as char;
-        let nx = ('a' as u8 + ((self.packed >> 6) & 7) as u8) as char;
-        let ny = ('1' as u8 + ((self.packed >> 9) & 7) as u8) as char;
-        format!("{ox}{oy}{nx}{ny}")
+        // let ox = ('a' as u8 + (self.packed & 7) as u8) as char;
+        // let oy = ('1' as u8 + ((self.packed >> 3) & 7) as u8) as char;
+        // let nx = ('a' as u8 + ((self.packed >> 6) & 7) as u8) as char;
+        // let ny = ('1' as u8 + ((self.packed >> 9) & 7) as u8) as char;
+        format!("{}", self)
+    }
+}
+
+impl BitBoardGame {
+    fn from_parts(board: BitBoard, turn: bool, white_qs: bool, white_ks: bool,
+             black_qs: bool, black_ks: bool, ep: Option<u8>) -> Self {
+        Self { board, turn, white_qs, white_ks, black_qs, black_ks, ep }
+    }
+}
+
+struct GenericMoveGenerator {
+    next: Vec<BitBoardGame>
+}
+
+impl OnMove for GenericMoveGenerator {
+    fn on_move<const TURN: bool, const WQ: bool,
+            const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
+        let mut b = me.clone();
+        if from == 0 && to == 56 {
+            panic!("ep {from} {to}")
+        }
+        b.mov(from, to);
+        let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
+        self.next.push(next_state);
+    }
+
+    fn on_rook_move<const TURN: bool, const WQ: bool,
+            const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
+        if from == 0 {panic!("rm {from} {to}")}
+        let mut b = me.clone();
+        b.mov(from, to);
+        let next_state = BitBoardGame::from_parts(b, !TURN, WQ && from != 0,
+                WK && from != 7, WK && from != 56, WK && from != 63, None);
+        self.next.push(next_state);
+    }
+
+    fn on_king_move<const TURN: bool, const WQ: bool,
+            const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
+        if from == 0 {panic!("km {from} {to}")}
+        let mut b = me.clone();
+        b.mov(from, to);
+        let next_state = BitBoardGame::from_parts(b, !TURN, WQ && !TURN, WK && !TURN, BQ && TURN, BK && TURN, None);
+        self.next.push(next_state);
+    }
+
+    fn on_ep_move<const TURN: bool, const WQ: bool,
+            const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
+        if from == 0 {panic!("ep {from} {to}")}
+        let mut b = me.clone();
+        b.mov(from, to);
+        if TURN {
+            b.clear(to + 8);
+        }
+        else {
+            b.clear(to - 8);
+        }
+        let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
+        self.next.push(next_state);
+    }
+
+    fn on_qs_castle<const TURN: bool, const WQ: bool,
+            const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard) {
+        panic!("fuck");
+        let mut b = me.clone();
+        if TURN {
+            b.mov(0, 3);
+            b.mov(4, 2);
+            let next_state = BitBoardGame::from_parts(b, !TURN, false, false, BQ, BK, None);
+            self.next.push(next_state);
+        }
+        else {
+            b.mov(56, 59);
+            b.mov(60, 58);
+            let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, false, false, None);
+            self.next.push(next_state);
+        }
+    }
+
+    fn on_ks_castle<const TURN: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard) {
+        panic!("me");
+        let mut b = me.clone();
+        if TURN {
+            b.mov(7, 5);
+            b.mov(4, 6);
+            let next_state = BitBoardGame::from_parts(b, !TURN, false, false, BQ, BK, None);
+            self.next.push(next_state);
+        }
+        else {
+            b.mov(63, 61);
+            b.mov(60, 62);
+            let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, false, false, None);
+            self.next.push(next_state);
+        }
+    }
+
+    fn on_pawn_push2<const TURN: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8) {
+        let mut b = me.clone();
+        // println!("p2 {from}");
+        if TURN {
+            b.mov(from, from + 16);
+        }
+        else {
+            b.mov(from, from - 16);
+        }
+        let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from & 7));
+        self.next.push(next_state);
     }
 }

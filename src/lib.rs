@@ -7,22 +7,20 @@ use game::ChessGame;
 
 use crate::game::Move;
 
-pub mod board;
 pub mod bit_board;
+pub mod board;
+pub mod game;
 pub mod notation;
 pub mod perft_bb_mover;
 pub mod pgn;
 pub mod piece;
-pub mod game;
 
 pub fn perft<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
     if limit == 0 {
         1
-    }
-    else if limit == 1 {
+    } else if limit == 1 {
         gs.moves().len()
-    }
-    else {
+    } else {
         let moves = gs.moves();
         let mut total = 0;
         for mov in moves {
@@ -49,11 +47,26 @@ pub fn perft_div<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{board::GameState, perft, game::ChessGame};
+    use crate::{bit_board::BitBoardGame, board::GameState, game::ChessGame, perft, perft_div};
     // game boards from https://www.chessprogramming.org/Perft_Results
     #[test]
     fn perft_base() {
         let mut gs = GameState::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        assert_eq!(perft(&mut gs, 1), 20);
+        assert_eq!(perft(&mut gs, 2), 400);
+        assert_eq!(perft(&mut gs, 3), 8902);
+        assert_eq!(perft(&mut gs, 4), 197281);
+        // assert_eq!(perft(&mut gs, 5), 4865609);
+        // assert_eq!(perft(&mut gs, 6), 119060324);
+    }
+
+    #[test]
+    fn perft_base2() {
+        let mut gs = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        let mut gs2 = BitBoardGame::from_fen("rnbqkbnr/ppppppp1/7p/8/P7/8/1PPPPPPP/RNBQKBNR w KQkq - 0 2").unwrap();
+        println!("--{}--", gs2);
+        perft_div(&mut gs2, 1);
+        // assert!(false);
         assert_eq!(perft(&mut gs, 1), 20);
         assert_eq!(perft(&mut gs, 2), 400);
         assert_eq!(perft(&mut gs, 3), 8902);
@@ -108,7 +121,9 @@ mod tests {
 
     #[test]
     fn perft_pos5() {
-        let mut gs = GameState::from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8").unwrap();
+        let mut gs =
+            GameState::from_fen("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+                .unwrap();
         assert_eq!(perft(&mut gs, 1), 44);
         assert_eq!(perft(&mut gs, 2), 1486);
         assert_eq!(perft(&mut gs, 3), 62379);
@@ -118,7 +133,10 @@ mod tests {
 
     #[test]
     fn perft_pos6() {
-        let mut gs = GameState::from_fen("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10").unwrap();
+        let mut gs = GameState::from_fen(
+            "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+        )
+        .unwrap();
         assert_eq!(perft(&mut gs, 1), 46);
         assert_eq!(perft(&mut gs, 2), 2079);
         assert_eq!(perft(&mut gs, 3), 89890);
