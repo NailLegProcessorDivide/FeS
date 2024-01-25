@@ -487,17 +487,17 @@ impl BitBoard {
     where BoolExists<{!COLOUR}>: Sized {
         let kings = self.col_king_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let own_pieces = self.col_piece_mask::<COLOUR>();
+        //let own_pieces = self.col_piece_mask::<COLOUR>();
         let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 8, pieces, 0);
-        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 8, pieces, 0);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & pieces, 8, pieces, 0);
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
 
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 8, pieces, 0);
-        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 8, pieces, 0);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & pieces, 8, pieces, 0);
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
@@ -510,17 +510,17 @@ impl BitBoard {
     where BoolExists<{!COLOUR}>: Sized {
         let kings = self.col_king_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let own_pieces = self.col_piece_mask::<COLOUR>();
+        //let own_pieces = self.col_piece_mask::<COLOUR>();
         let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, pieces, Self::LEFT_SIDE);
-        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 1, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & pieces, 1, pieces, Self::LEFT_SIDE);
         let mut mask = 0;
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
 
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 1, pieces, Self::RIGHT_SIDE);
-        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 1, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & pieces, 1, pieces, Self::RIGHT_SIDE);
         if r2 & other_ortho != 0 {
             mask |= r1 | r2;
         }
@@ -538,18 +538,18 @@ impl BitBoard {
     where BoolExists<{!COLOUR}>: Sized {
         let kings = self.col_king_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let own_pieces = self.col_piece_mask::<COLOUR>();
+        //let own_pieces = self.col_piece_mask::<COLOUR>();
         let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
 
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 7, pieces, Self::LEFT_SIDE);
-        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 7, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & pieces, 7, pieces, Self::LEFT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
 
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 7, pieces, Self::RIGHT_SIDE);
-        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 7, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & pieces, 7, pieces, Self::RIGHT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
@@ -561,18 +561,18 @@ impl BitBoard {
     where BoolExists<{!COLOUR}>: Sized {
         let kings = self.col_king_mask::<COLOUR>();
         let pieces = self.piece_mask();
-        let own_pieces = self.col_piece_mask::<COLOUR>();
+        //let own_pieces = self.col_piece_mask::<COLOUR>();
         let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
 
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
-        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & own_pieces, 9, pieces, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & pieces, 9, pieces, Self::LEFT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
 
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 9, pieces, Self::RIGHT_SIDE);
-        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & own_pieces, 9, pieces, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & pieces, 9, pieces, Self::RIGHT_SIDE);
         if r2 & other_diag != 0 {
             mask |= r1 | r2;
         }
@@ -603,63 +603,47 @@ impl BitBoard {
         let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
         let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
         if TURN {
-            let mut up1 = (empty >> 8) & up_pawns;
-            let mut up2 = (empty >> 16) & up1 & (0xff << 8);
-            let mut lr = (enemy >> 7) & lr_pawns & !Self::LEFT_SIDE;
-            let mut rl = (enemy >> 9) & rl_pawns & !Self::RIGHT_SIDE;
-            while up1 != 0 {
-                let from = up1 & !(up1 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind + 8);
-                up1 &= up1 - 1;
+            let up1 = (empty >> 8) & up_pawns;
+            let up2 = (empty >> 16) & up1 & (0xff << 8);
+            let lr = (enemy >> 7) & lr_pawns & !Self::LEFT_SIDE;
+            let rl = (enemy >> 9) & rl_pawns & !Self::RIGHT_SIDE;
+            if up1 != 0 {
+                let from_idx = up1.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 8);
             }
-            while up2 != 0 {
-                let from = up2 & !(up2 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_ind);
-                up2 &= up2 - 1;
+            if up2 != 0 {
+                let from_idx = up2.trailing_zeros() as u8;
+                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
             }
-            while lr != 0 {
-                let from = lr & !(lr - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind + 7);
-                lr &= lr - 1;
+            if lr != 0 {
+                let from_idx = lr.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
             }
-            while rl != 0 {
-                let from = rl & !(rl - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind + 9);
-                rl &= rl - 1;
+            if rl != 0 {
+                let from_idx = rl.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
             }
         }
         else {
-            let mut up1 = (empty << 8) & up_pawns;
-            let mut up2 = (empty << 16) & up1 & (0xff << (8 * 6));
-            let mut lr = (enemy << 7) & lr_pawns & !Self::RIGHT_SIDE;
-            let mut rl = (enemy << 9) & rl_pawns & !Self::LEFT_SIDE;
-            while up1 != 0 {
-                let from = up1 & !(up1 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind - 8);
-                up1 &= up1 - 1;
+            let up1 = (empty << 8) & up_pawns;
+            let up2 = (empty << 16) & up1 & (0xff << (8 * 6));
+            let lr = (enemy << 7) & lr_pawns & !Self::RIGHT_SIDE;
+            let rl = (enemy << 9) & rl_pawns & !Self::LEFT_SIDE;
+            if up1 != 0 {
+                let from_idx = up1.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 8);
             }
-            while up2 != 0 {
-                let from = up2 & !(up2 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_ind);
-                up2 &= up2 - 1;
+            if up2 != 0 {
+                let from_idx = up2.trailing_zeros() as u8;
+                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
             }
-            while lr != 0 {
-                let from = lr & !(lr - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind - 7);
-                lr &= lr - 1;
+            if lr != 0 {
+                let from_idx = lr.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
             }
-            while rl != 0 {
-                let from = rl & !(rl - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind - 9);
-                rl &= rl - 1;
+            if rl != 0 {
+                let from_idx = rl.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
             }
         }
     }
@@ -683,63 +667,63 @@ impl BitBoard {
         let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
         let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
         if TURN {
-            let mut up1 = (empty >> 8) & up_pawns;
-            let mut up2 = (empty >> 16) & up1 & (0xff << 8);
-            let mut lr = (enemy >> 7) & lr_pawns & !Self::LEFT_SIDE;
-            let mut rl = (enemy >> 9) & rl_pawns & !Self::RIGHT_SIDE;
-            while up1 != 0 {
-                let from = up1 & !(up1 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind + 8);
-                up1 &= up1 - 1;
+            let up1 = (empty >> 8) & up_pawns;
+            let up2 = (empty >> 16) & up1 & (0xff << 8);
+            let lr = (enemy >> 7) & lr_pawns & !Self::LEFT_SIDE;
+            let rl = (enemy >> 9) & rl_pawns & !Self::RIGHT_SIDE;
+            if up1 != 0 {
+                let from_idx = up1.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 8);
             }
-            while up2 != 0 {
-                let from = up2 & !(up2 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_ind);
-                up2 &= up2 - 1;
+            if up2 != 0 {
+                let from_idx = up2.trailing_zeros() as u8;
+                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
             }
-            while lr != 0 {
-                let from = lr & !(lr - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind + 7);
-                lr &= lr - 1;
+            if lr != 0 {
+                let from_idx = lr.trailing_zeros() as u8;
+                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx + 7) as u64 != 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
+                } else {
+                    on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
+                }
             }
-            while rl != 0 {
-                let from = rl & !(rl - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind + 9);
-                rl &= rl - 1;
+            if rl != 0 {
+                let from_idx = rl.trailing_zeros() as u8;
+                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx + 9) as u64 != 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
+                } else {
+                    on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
+                }
             }
         }
         else {
-            let mut up1 = (empty << 8) & up_pawns;
-            let mut up2 = (empty << 16) & up1 & (0xff << (8 * 6));
-            let mut lr = (enemy << 7) & lr_pawns & !Self::RIGHT_SIDE;
-            let mut rl = (enemy << 9) & rl_pawns & !Self::LEFT_SIDE;
-            while up1 != 0 {
-                let from = up1 & !(up1 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind - 8);
-                up1 &= up1 - 1;
+            let up1 = (empty << 8) & up_pawns;
+            let up2 = (empty << 16) & up1 & (0xff << (8 * 6));
+            let lr = (enemy << 7) & lr_pawns & !Self::RIGHT_SIDE;
+            let rl = (enemy << 9) & rl_pawns & !Self::LEFT_SIDE;
+            if up1 != 0 {
+                let from_idx = up1.trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 8);
             }
-            while up2 != 0 {
-                let from = up2 & !(up2 - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_ind);
-                up2 &= up2 - 1;
+            if up2 != 0 {
+                let from_idx = up2.trailing_zeros() as u8;
+                on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
             }
-            while lr != 0 {
-                let from = lr & !(lr - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind - 7);
-                lr &= lr - 1;
+            if lr != 0 {
+                let from_idx = lr.trailing_zeros() as u8;
+                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx - 7) as u64 != 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
+                } else {
+                    on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
+                }
             }
-            while rl != 0 {
-                let from = rl & !(rl - 1);
-                let from_ind = from.trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, from_ind - 9);
-                rl &= rl - 1;
+            if rl != 0 {
+                let from_idx = rl.trailing_zeros() as u8;
+                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx - 9) as u64 != 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
+                } else {
+                    on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
+                }
             }
         }
     }
@@ -755,11 +739,11 @@ impl BitBoard {
         let mut knights = self.col_knight_mask::<TURN>() & !ortho_pins & !diagonal_pins;
         while knights != 0 {
             let from = knights & !(knights - 1);
-            let from_ind = from.trailing_zeros() as u8;
+            let from_idx = from.trailing_zeros() as u8;
             let mut to_mask = self.knight_like_attack_mask(from & self.col_knight_mask::<TURN>()) & base_mask;
             while to_mask != 0 {
-                let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             knights &= knights - 1;
@@ -779,11 +763,11 @@ impl BitBoard {
 
         while free_bishops != 0 {
             let from = free_bishops & !(free_bishops - 1);
-            let from_ind = from.trailing_zeros() as u8;
+            let from_idx = from.trailing_zeros() as u8;
             let mut to_mask = self.diagonal_like_attack_mask(from & self.col_diagonal_mask::<TURN>()) & base_mask;
             while to_mask != 0 {
-                let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             free_bishops &= free_bishops - 1;
@@ -791,11 +775,11 @@ impl BitBoard {
 
         while pin_bishops != 0 {
             let from = pin_bishops & !(pin_bishops - 1);
-            let from_ind = from.trailing_zeros() as u8;
+            let from_idx = from.trailing_zeros() as u8;
             let mut to_mask = self.diagonal_like_attack_mask(from & self.col_diagonal_mask::<TURN>()) & base_mask;
             while to_mask != 0 {
-                let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             pin_bishops &= pin_bishops - 1;
@@ -815,11 +799,11 @@ impl BitBoard {
 
         while free_rooks != 0 {
             let from = free_rooks & !(free_rooks - 1);
-            let from_ind = from.trailing_zeros() as u8;
+            let from_idx = from.trailing_zeros() as u8;
             let mut to_mask = self.ortho_like_attack_mask(from & self.col_ortho_mask::<TURN>()) & base_mask;
             while to_mask != 0 {
-                let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             free_rooks &= free_rooks - 1;
@@ -827,11 +811,11 @@ impl BitBoard {
 
         while pin_rooks != 0 {
             let from = pin_rooks & !(pin_rooks - 1);
-            let from_ind = from.trailing_zeros() as u8;
+            let from_idx = from.trailing_zeros() as u8;
             let mut to_mask = self.ortho_like_attack_mask(from & self.col_ortho_mask::<TURN>()) & base_mask;
             while to_mask != 0 {
-                let to_ind = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
-                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_ind, to_ind);
+                let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             pin_rooks &= pin_rooks - 1;
@@ -842,7 +826,23 @@ impl BitBoard {
     pub fn gen_king_moves<const TURN: bool, const WQ: bool,
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
-        //call on_move for every legal_move
+        let other_attacks = self.attack_mask::<{!TURN}>();
+        let base_mask = self.enemy_or_empty::<TURN>() & !other_attacks;
+        let king = self.col_king_mask::<TURN>();
+
+        let from_idx = king.trailing_zeros() as u8;  
+        let mut to_mask = self.king_attack_mask::<TURN>() & base_mask;
+        while to_mask != 0 {
+            let to_idx = (to_mask & !(to_mask - 1)).trailing_zeros() as u8;
+            on_move.on_king_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
+            to_mask &= to_mask - 1;
+        }
+        if (WK || BK) && (king >> 1) & base_mask != 0 && (king >> 2) & base_mask != 0 {
+            on_move.on_ks_castle::<TURN, WQ, WK, BQ, BK>(self);
+        }
+        if (WQ || BQ) && (king << 1) & base_mask != 0 && (king << 2) & base_mask != 0 {
+            on_move.on_qs_castle::<TURN, WQ, WK, BQ, BK>(self);
+        }
     }
 
     #[inline(always)]

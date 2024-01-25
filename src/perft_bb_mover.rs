@@ -104,7 +104,22 @@ impl OnMove for PerftMove {
 
     fn on_ep_move<const TURN: bool, const WQ: bool,
         const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
-        todo!()
+        self.depth += 1;
+        if self.depth == self.depth_target {
+            self.counter += 1;
+        }
+        else {
+            let mut b = me.clone();
+            b.mov(from, to);
+            if TURN {
+                b.clear(to + 8);
+            }
+            else {
+                b.clear(to - 8);
+            }
+            b.gen_moves::<false, false, false, BQ, BK, Self>(self);
+        }
+        self.depth -= 1;
     }
 
     fn on_qs_castle<const TURN: bool, const WQ: bool,
@@ -126,6 +141,7 @@ impl OnMove for PerftMove {
                 b.gen_moves::<true, WQ, WK, false, false, Self>(self);
             }
         }
+        self.depth -= 1;
     }
 
     fn on_ks_castle<const TURN: bool, const WQ: bool,
@@ -147,6 +163,7 @@ impl OnMove for PerftMove {
                 b.gen_moves::<true, WQ, WK, false, false, Self>(self);
             }
         }
+        self.depth -= 1;
     }
 
     fn on_pawn_push2<const TURN: bool, const WQ: bool,
@@ -159,12 +176,13 @@ impl OnMove for PerftMove {
             let mut b = me.clone();
             if TURN {
                 b.mov(from, from + 16);
-                b.gen_moves_with_ep::<false, WQ, WK, BQ, BK, Self>(self, from + 8, );
+                b.gen_moves_with_ep::<false, WQ, WK, BQ, BK, Self>(self, from + 8);
             }
             else {
                 b.mov(from, from - 16);
-                b.gen_moves_with_ep::<true, WQ, WK, BQ, BK, Self>(self, from - 8, );
+                b.gen_moves_with_ep::<true, WQ, WK, BQ, BK, Self>(self, from - 8);
             }
         }
+        self.depth -= 1;
     }
 }
