@@ -2,7 +2,6 @@
 #![allow(incomplete_features)]
 #![feature(adt_const_params)]
 
-use board::GameState;
 use game::ChessGame;
 
 use crate::game::Move;
@@ -63,7 +62,7 @@ mod tests {
     #[test]
     fn perft_base2() {
         let mut gs = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
-        let mut gs2 = BitBoardGame::from_fen("rnbqkbnr/ppppppp1/7p/8/P7/8/1PPPPPPP/RNBQKBNR w KQkq - 0 2").unwrap();
+        let mut gs2 = BitBoardGame::from_fen("rnbqkbnr/ppp1pppp/3p4/8/Q1P5/8/PP1PPPPP/RNB1KBNR b KQkq - 1 2").unwrap();
         println!("--{}--", gs2);
         perft_div(&mut gs2, 1);
         // assert!(false);
@@ -71,8 +70,8 @@ mod tests {
         assert_eq!(perft(&mut gs, 2), 400);
         assert_eq!(perft(&mut gs, 3), 8902);
         assert_eq!(perft(&mut gs, 4), 197281);
-        // assert_eq!(perft(&mut gs, 5), 4865609);
-        // assert_eq!(perft(&mut gs, 6), 119060324);
+        assert_eq!(perft(&mut gs, 5), 4865609);
+        assert_eq!(perft(&mut gs, 6), 119060324);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::bit_board::{BitBoard, BoolExists, OnMove};
+use crate::bit_board::{BitBoard, OnMove};
 
 struct PerftMove {
     depth_target: u64,

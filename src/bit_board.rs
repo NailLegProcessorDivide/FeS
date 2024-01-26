@@ -1,6 +1,6 @@
 use std::{fmt::Display, marker::ConstParamTy};
 
-use crate::{notation::AlgebraicMove, game::{ChessGame, Move}, piece::PlayerColour};
+use crate::{notation::AlgebraicMove, game::{ChessGame, Move}};
 
 pub struct BBMove {
     /// 0b-pccvvvuuuyyyxxx
@@ -14,7 +14,7 @@ pub struct BBMove {
     ///  - 10 = rook
     ///  - 11 = queen
     /// p: promotion flag
-    packed: u16
+    _packed: u16
 }
 
 pub struct BoolExists<const _N: bool>{}
@@ -590,7 +590,8 @@ impl BitBoard {
         let lr_pins = self.lr_pin_mask::<TURN>();
         let rl_pins = self.rl_pin_mask::<TURN>();
         let diagonal_pins = self.diagonal_pin_mask::<TURN>();
-        let empty = !self.piece_mask() & check_mask;
+        let empty = !self.piece_mask();
+        let empty_free = empty & check_mask;
         let enemy = self.col_piece_mask::<{!TURN}>() & check_mask;
 
         let base_pawns = self.col_pawn_mask::<TURN>();
@@ -598,8 +599,8 @@ impl BitBoard {
         let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
         let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
         if TURN {
-            let mut up1 = (empty >> 8) & up_pawns;
-            let mut up2 = (empty >> 16) & up1 & (0xff << 8);
+            let mut up1 = (empty_free >> 8) & up_pawns;
+            let mut up2 = (empty_free >> 16) & (empty >> 8) & up_pawns & (0xff << 8);
             let mut lr = (enemy >> 7) & lr_pawns & !Self::RIGHT_SIDE;
             let mut rl = (enemy >> 9) & rl_pawns & !Self::LEFT_SIDE;
             while up1 != 0 {
@@ -624,8 +625,8 @@ impl BitBoard {
             }
         }
         else {
-            let mut up1 = (empty << 8) & up_pawns;
-            let mut up2 = (empty << 16) & up1 & (0xff << (8 * 6));
+            let mut up1 = (empty_free << 8) & up_pawns;
+            let mut up2 = (empty_free << 16) & (empty << 8) & up_pawns & (0xff << (8 * 6));
             let mut lr = (enemy << 7) & lr_pawns & !Self::LEFT_SIDE;
             let mut rl = (enemy << 9) & rl_pawns & !Self::RIGHT_SIDE;
             while up1 != 0 {
@@ -634,7 +635,6 @@ impl BitBoard {
                 up1 &= up1 - 1;
             }
             while up2 != 0 {
-                // println!("up2 {:016x}", up2);
                 let from_idx = up2.trailing_zeros() as u8;
                 on_move.on_pawn_push2::<TURN, WQ, WK, BQ, BK>(self, from_idx);
                 up2 &= up2 - 1;
@@ -656,23 +656,24 @@ impl BitBoard {
     pub fn gen_pawn_moves_with_ep<const TURN: bool, const WQ: bool,
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov, sq: u8)
     where BoolExists<{!TURN}>: Sized {
-        let base_mask = self.check_mask::<TURN>();
+        let check_mask = self.check_mask::<TURN>();
         let hor_pins = self.hor_pin_mask::<TURN>();
         let ortho_pins = self.ortho_pin_mask::<TURN>();
         let lr_pins = self.lr_pin_mask::<TURN>();
         let rl_pins = self.rl_pin_mask::<TURN>();
         let diagonal_pins = self.diagonal_pin_mask::<TURN>();
         let empty = !self.piece_mask();
+        let empty_free = empty & check_mask;
         let ep = 1 << sq;
         let enemy = self.col_piece_mask::<{!TURN}>() | ep;
 
-        let base_pawns = self.col_pawn_mask::<TURN>() & base_mask;
+        let base_pawns = self.col_pawn_mask::<TURN>();
         let lr_pawns = base_pawns & !rl_pins & !ortho_pins;
         let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
         let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
         if TURN {
-            let mut up1 = (empty >> 8) & up_pawns;
-            let mut up2 = (empty >> 16) & up1 & (0xff << 8);
+            let mut up1 = (empty_free >> 8) & up_pawns;
+            let mut up2 = (empty_free >> 16) & (empty >> 8) & up_pawns & (0xff << 8);
             let mut lr = (enemy >> 7) & lr_pawns & !Self::RIGHT_SIDE;
             let mut rl = (enemy >> 9) & rl_pawns & !Self::LEFT_SIDE;
             while up1 != 0 {
@@ -705,8 +706,8 @@ impl BitBoard {
             }
         }
         else {
-            let mut up1 = (empty << 8) & up_pawns;
-            let mut up2 = (empty << 16) & up1 & (0xff << (8 * 6));
+            let mut up1 = (empty_free << 8) & up_pawns;
+            let mut up2 = (empty_free << 16) & (empty << 8) & up_pawns & (0xff << (8 * 6));
             let mut lr = (enemy << 7) & lr_pawns & !Self::LEFT_SIDE;
             let mut rl = (enemy << 9) & rl_pawns & !Self::RIGHT_SIDE;
             while up1 != 0 {
@@ -944,20 +945,15 @@ impl ChessGame for BitBoardGame {
             counter += 1;
         }
 
-        match enpassant_col {
-            Some(x) => board[0] |= 1 << (if turn {24} else {48} + x),
-            None => {}
-        }
-
         if counter == 64 {
-            Some(BitBoardGame { board: BitBoard { board }, turn, white_qs: true,
-                     white_ks: true, black_qs: true, black_ks: true, ep: None })
+            Some(BitBoardGame { board: BitBoard { board }, turn, white_qs: white_qs_castle,
+                     white_ks: white_ks_castle, black_qs: black_qs_castle, black_ks: black_ks_castle, ep: enpassant_col })
         } else {
             None
         }
     }
 
-    fn decode_alg(&mut self, mov: &AlgebraicMove) -> Self::Move {
+    fn decode_alg(&mut self, _mov: &AlgebraicMove) -> Self::Move {
         todo!()
     }
 
@@ -1042,7 +1038,7 @@ impl ChessGame for BitBoardGame {
         *self = mov.clone()
     }
 
-    fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
+    fn gen_alg(&mut self, _mov: &Self::Move) -> AlgebraicMove {
         todo!()
     }
 }
@@ -1116,9 +1112,6 @@ impl OnMove for GenericMoveGenerator {
     fn on_move<const TURN: bool, const WQ: bool,
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
         let mut b = me.clone();
-        if from == 0 && to == 56 {
-            panic!("ep {from} {to}")
-        }
         b.mov(from, to);
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
         self.next.push(next_state);
@@ -1126,7 +1119,6 @@ impl OnMove for GenericMoveGenerator {
 
     fn on_rook_move<const TURN: bool, const WQ: bool,
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
-        if from == 0 {panic!("rm {from} {to}")}
         let mut b = me.clone();
         b.mov(from, to);
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ && from != 0,
@@ -1136,7 +1128,6 @@ impl OnMove for GenericMoveGenerator {
 
     fn on_king_move<const TURN: bool, const WQ: bool,
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
-        if from == 0 {panic!("km {from} {to}")}
         let mut b = me.clone();
         b.mov(from, to);
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ && !TURN, WK && !TURN, BQ && TURN, BK && TURN, None);
@@ -1145,7 +1136,6 @@ impl OnMove for GenericMoveGenerator {
 
     fn on_ep_move<const TURN: bool, const WQ: bool,
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
-        if from == 0 {panic!("ep {from} {to}")}
         let mut b = me.clone();
         b.mov(from, to);
         if TURN {
@@ -1160,7 +1150,6 @@ impl OnMove for GenericMoveGenerator {
 
     fn on_qs_castle<const TURN: bool, const WQ: bool,
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard) {
-        panic!("fuck");
         let mut b = me.clone();
         if TURN {
             b.mov(0, 3);
@@ -1178,7 +1167,6 @@ impl OnMove for GenericMoveGenerator {
 
     fn on_ks_castle<const TURN: bool, const WQ: bool,
         const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard) {
-        panic!("me");
         let mut b = me.clone();
         if TURN {
             b.mov(7, 5);
