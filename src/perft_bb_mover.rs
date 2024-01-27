@@ -133,9 +133,9 @@ impl OnMove for PerftMove {
             let mut b = me.clone();
             b.mov(from, to);
             if TURN {
-                b.clear(to + 8);
-            } else {
                 b.clear(to - 8);
+            } else {
+                b.clear(to + 8);
             }
             b.gen_moves::<false, false, false, BQ, BK, Self>(self);
         }
@@ -158,12 +158,12 @@ impl OnMove for PerftMove {
         } else {
             let mut b = me.clone();
             if TURN {
-                b.mov(0, 3);
-                b.mov(4, 2);
+                b.mov(7, 4);
+                b.mov(3, 5);
                 b.gen_moves::<false, false, false, BQ, BK, Self>(self);
             } else {
-                b.mov(56, 59);
-                b.mov(60, 58);
+                b.mov(63, 60);
+                b.mov(59, 61);
                 b.gen_moves::<true, WQ, WK, false, false, Self>(self);
             }
         }
@@ -186,12 +186,12 @@ impl OnMove for PerftMove {
         } else {
             let mut b = me.clone();
             if TURN {
-                b.mov(7, 5);
-                b.mov(4, 6);
+                b.mov(0, 2);
+                b.mov(3, 1);
                 b.gen_moves::<false, false, false, BQ, BK, Self>(self);
             } else {
-                b.mov(63, 61);
-                b.mov(60, 62);
+                b.mov(56, 58);
+                b.mov(59, 57);
                 b.gen_moves::<true, WQ, WK, false, false, Self>(self);
             }
         }

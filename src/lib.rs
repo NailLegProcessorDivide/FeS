@@ -62,9 +62,9 @@ mod tests {
     #[test]
     fn perft_base2() {
         let mut gs = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
-        let mut gs2 = BitBoardGame::from_fen("rnbqkbnr/ppp1pppp/3p4/8/Q1P5/8/PP1PPPPP/RNB1KBNR b KQkq - 1 2").unwrap();
+        let mut gs2 = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/P7/8/1PPPPPPP/RNBQKBNR b KQkq - 0 1").unwrap();
         println!("--{}--", gs2);
-        perft_div(&mut gs2, 1);
+        perft_div(&mut gs2, 4);
         // assert!(false);
         assert_eq!(perft(&mut gs, 1), 20);
         assert_eq!(perft(&mut gs, 2), 400);

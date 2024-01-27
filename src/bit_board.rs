@@ -688,7 +688,7 @@ impl BitBoard {
             }
             while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
-                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx + 7) as u64 != 0 {
+                if empty & (1 << (from_idx + 7)) != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
@@ -697,7 +697,7 @@ impl BitBoard {
             }
             while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
-                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx + 9) as u64 != 0 {
+                if empty & (1 << (from_idx + 9)) != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
@@ -722,7 +722,7 @@ impl BitBoard {
             }
             while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
-                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx - 7) as u64 != 0 {
+                if empty & (1 << (from_idx - 7)) != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
@@ -731,7 +731,7 @@ impl BitBoard {
             }
             while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
-                if empty & !lr_pins & !rl_pins & !hor_pins & (from_idx - 9) as u64 != 0 {
+                if empty & (1 << (from_idx - 9)) != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
                 } else {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
@@ -786,7 +786,7 @@ impl BitBoard {
 
         while pin_bishops != 0 {
             let from_idx = pin_bishops.trailing_zeros() as u8;
-            let mut to_mask = self.diagonal_like_attack_mask(1 << from_idx) & base_mask;
+            let mut to_mask = self.diagonal_like_attack_mask(1 << from_idx) & base_mask & diagonal_pins;
             while to_mask != 0 {
                 let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
@@ -820,7 +820,7 @@ impl BitBoard {
 
         while pin_rooks != 0 {
             let from_idx = pin_rooks.trailing_zeros() as u8;
-            let mut to_mask = self.ortho_like_attack_mask(1 << from_idx) & base_mask;
+            let mut to_mask = self.ortho_like_attack_mask(1 << from_idx) & base_mask & ortho_pins;
             while to_mask != 0 {
                 let to_idx = to_mask.trailing_zeros() as u8;
                 on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
@@ -912,15 +912,20 @@ impl ChessGame for BitBoardGame {
         let black_qs_castle = castle_rights.contains('q');
 
         let enpassant_col = match fen_parts.next()?.chars().next()? {
-            'a' => Some(0),
-            'b' => Some(1),
-            'c' => Some(2),
-            'd' => Some(3),
-            'e' => Some(4),
-            'f' => Some(5),
-            'g' => Some(6),
-            'h' => Some(7),
+            'a' => Some(7),
+            'b' => Some(6),
+            'c' => Some(5),
+            'd' => Some(4),
+            'e' => Some(3),
+            'f' => Some(2),
+            'g' => Some(1),
+            'h' => Some(0),
             _ => None,
+        };
+
+        let enpassant = match enpassant_col {
+            Some(x) => Some(if turn {x + 40} else {x + 16}),
+            _ => None
         };
 
         let mut board: [u64; 4] = [0; 4];
@@ -947,7 +952,7 @@ impl ChessGame for BitBoardGame {
 
         if counter == 64 {
             Some(BitBoardGame { board: BitBoard { board }, turn, white_qs: white_qs_castle,
-                     white_ks: white_ks_castle, black_qs: black_qs_castle, black_ks: black_ks_castle, ep: enpassant_col })
+                     white_ks: white_ks_castle, black_qs: black_qs_castle, black_ks: black_ks_castle, ep: enpassant })
         } else {
             None
         }
@@ -1121,8 +1126,8 @@ impl OnMove for GenericMoveGenerator {
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
         let mut b = me.clone();
         b.mov(from, to);
-        let next_state = BitBoardGame::from_parts(b, !TURN, WQ && from != 0,
-                WK && from != 7, WK && from != 56, WK && from != 63, None);
+        let next_state = BitBoardGame::from_parts(b, !TURN, WQ && from != 7,
+                WK && from != 0, BQ && from != 63, BK && from != 56, None);
         self.next.push(next_state);
     }
 
@@ -1139,10 +1144,10 @@ impl OnMove for GenericMoveGenerator {
         let mut b = me.clone();
         b.mov(from, to);
         if TURN {
-            b.clear(to + 8);
+            b.clear(to - 8);
         }
         else {
-            b.clear(to - 8);
+            b.clear(to + 8);
         }
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
         self.next.push(next_state);
@@ -1152,14 +1157,14 @@ impl OnMove for GenericMoveGenerator {
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard) {
         let mut b = me.clone();
         if TURN {
-            b.mov(0, 3);
-            b.mov(4, 2);
+            b.mov(7, 4);
+            b.mov(3, 5);
             let next_state = BitBoardGame::from_parts(b, !TURN, false, false, BQ, BK, None);
             self.next.push(next_state);
         }
         else {
-            b.mov(56, 59);
-            b.mov(60, 58);
+            b.mov(63, 60);
+            b.mov(59, 61);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, false, false, None);
             self.next.push(next_state);
         }
@@ -1169,14 +1174,14 @@ impl OnMove for GenericMoveGenerator {
         const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard) {
         let mut b = me.clone();
         if TURN {
-            b.mov(7, 5);
-            b.mov(4, 6);
+            b.mov(0, 2);
+            b.mov(3, 1);
             let next_state = BitBoardGame::from_parts(b, !TURN, false, false, BQ, BK, None);
             self.next.push(next_state);
         }
         else {
-            b.mov(63, 61);
-            b.mov(60, 62);
+            b.mov(56, 58);
+            b.mov(59, 57);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, false, false, None);
             self.next.push(next_state);
         }
@@ -1188,11 +1193,13 @@ impl OnMove for GenericMoveGenerator {
         // println!("p2 {from}");
         if TURN {
             b.mov(from, from + 16);
+            let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from + 8));
+            self.next.push(next_state);
         }
         else {
             b.mov(from, from - 16);
+            let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from - 8));
+            self.next.push(next_state);
         }
-        let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from & 7));
-        self.next.push(next_state);
     }
 }
