@@ -31,7 +31,7 @@ pub fn perft_div<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
         println!("{}: {}", mov.to_uci(), c);
         gs.unmove(&unmov);
     }
-    println!("total: {total}");
+    println!("\ntotal: {total}\n");
     total
 }
 
@@ -46,7 +46,4 @@ fn main() {
     let mut gs = BitBoardGame::from_fen(&fen).unwrap();
 
     perft_div(&mut gs, depth);
-
-    println!();
-    println!("{}", gs.board);
 }

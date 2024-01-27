@@ -37,6 +37,12 @@ pub struct BitBoard {
     board: [u64; 4]
 }
 
+#[derive(Clone)]
+pub struct BitBoardGameMove {
+    mov: u16,
+    bbg: BitBoardGame 
+}
+
 #[derive(ConstParamTy, PartialEq, Eq)]
 pub enum Shift {
     Left,
@@ -94,8 +100,8 @@ impl BitBoard {
     /// 1 if white
     /// 0 if black or no piece
     #[inline(always)]
-    pub const fn colour_mask<const COLOUR: bool>(&self) -> u64 {
-        if COLOUR {
+    pub const fn colour_mask<const TURN: bool>(&self) -> u64 {
+        if TURN {
             self.board[3]
         }
         else {
@@ -113,13 +119,13 @@ impl BitBoard {
     /// 1 if real white/black piece (excl. enpassantable pawns)
     /// 0 if not white/black piece
     #[inline(always)]
-    pub const fn col_piece_mask<const COLOUR: bool>(&self) -> u64 {
-        self.piece_mask() & self.colour_mask::<COLOUR>()
+    pub const fn col_piece_mask<const TURN: bool>(&self) -> u64 {
+        self.piece_mask() & self.colour_mask::<TURN>()
     }
 
     #[inline(always)]
-    pub const fn enemy_or_empty<const COLOUR: bool>(&self) -> u64 {
-        !self.col_piece_mask::<COLOUR>()
+    pub const fn enemy_or_empty<const TURN: bool>(&self) -> u64 {
+        !self.col_piece_mask::<TURN>()
     }
 
     /// 1 if piece (incl. special enpassant square)
@@ -157,17 +163,17 @@ impl BitBoard {
     /// 1 if colour pawn
     /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn col_pawn_mask<const COLOUR: bool>(&self) -> u64 {
-        self.pawn_mask() & self.colour_mask::<COLOUR>()
+    pub const fn col_pawn_mask<const TURN: bool>(&self) -> u64 {
+        self.pawn_mask() & self.colour_mask::<TURN>()
     }
 
     /// colour 0 = white, u64::MAX = black
     /// 1 if colour pawn
     /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn pawn_attack_mask<const COLOUR: bool>(&self) -> u64 {
-        let pawns = self.col_pawn_mask::<COLOUR>();
-        if COLOUR {
+    pub const fn pawn_attack_mask<const TURN: bool>(&self) -> u64 {
+        let pawns = self.col_pawn_mask::<TURN>();
+        if TURN {
             ((pawns << 9) & !Self::RIGHT_SIDE) |
             ((pawns << 7) & !Self::LEFT_SIDE)
         }
@@ -178,8 +184,8 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn pawn_like_attack_mask<const COLOUR: bool>(&self, pieces: u64) -> u64 {
-        if COLOUR {
+    pub const fn pawn_like_attack_mask<const TURN: bool>(&self, pieces: u64) -> u64 {
+        if TURN {
             ((pieces << 9) & !Self::RIGHT_SIDE) |
             ((pieces << 7) & !Self::LEFT_SIDE)
         }
@@ -190,11 +196,11 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn pawn_move_mask<const COLOUR: bool>(&self) -> u64 {
-        let pawns = self.col_pawn_mask::<COLOUR>();
+    pub const fn pawn_move_mask<const TURN: bool>(&self) -> u64 {
+        let pawns = self.col_pawn_mask::<TURN>();
         let pieces = self.piece_mask();
 
-        if COLOUR {
+        if TURN {
             let step = (pawns << 8) & !pieces;
             step | ((step << 8) & !pieces & 0xff000000)
         } else {
@@ -204,10 +210,10 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn pawn_like_move_mask<const COLOUR: bool>(&self, pieces: u64) -> u64 {
+    pub const fn pawn_like_move_mask<const TURN: bool>(&self, pieces: u64) -> u64 {
         let blockers = self.piece_mask();
 
-        if COLOUR {
+        if TURN {
             let step = (pieces << 8) & !blockers;
             step | ((step << 8) & !blockers & 0xff000000)
         } else {
@@ -227,16 +233,16 @@ impl BitBoard {
     /// 1 if colour knight
     /// 0 if no colour knight
     #[inline(always)]
-    pub const fn col_knight_mask<const COLOUR: bool>(&self) -> u64 {
-        self.knight_mask() & (self.colour_mask::<COLOUR>())
+    pub const fn col_knight_mask<const TURN: bool>(&self) -> u64 {
+        self.knight_mask() & (self.colour_mask::<TURN>())
     }
 
     /// colour 0 = white, u64::MAX = black
     /// 1 if colour knight can attack
     /// 0 if no colour knight cant attack
     #[inline(always)]
-    pub const fn knight_attack_mask<const COLOUR: bool>(&self) -> u64 {
-        let knights = self.col_knight_mask::<COLOUR>();
+    pub const fn knight_attack_mask<const TURN: bool>(&self) -> u64 {
+        let knights = self.col_knight_mask::<TURN>();
         //0b11111100
         let knights_r2 = knights & !Self::RIGHT2_SIDE;
         //0b11111110
@@ -276,8 +282,8 @@ impl BitBoard {
     /// 1 if colour bishop like
     /// 0 if no colour bishop like
     #[inline(always)]
-    pub const fn col_diagonal_mask<const COLOUR: bool>(&self) -> u64 {
-        self.diagonal_mask() & (self.colour_mask::<COLOUR>())
+    pub const fn col_diagonal_mask<const TURN: bool>(&self) -> u64 {
+        self.diagonal_mask() & (self.colour_mask::<TURN>())
     }
 
     /// colour 0 = white, u64::MAX = black
@@ -285,8 +291,8 @@ impl BitBoard {
     /// 0 if no colour bishop cant attack
     /// Note: a queen is a bishop
     #[inline(always)]
-    pub const fn diagonal_attack_mask<const COLOUR: bool>(&self) -> u64 {
-        let bishops = self.col_diagonal_mask::<COLOUR>();
+    pub const fn diagonal_attack_mask<const TURN: bool>(&self) -> u64 {
+        let bishops = self.col_diagonal_mask::<TURN>();
         let pieces = self.piece_mask();
         let ur = Self::sliding_mask::<{Shift::Left}>(bishops, 7, pieces, Self::LEFT_SIDE);
         let ul = Self::sliding_mask::<{Shift::Left}>(bishops, 9, pieces, Self::RIGHT_SIDE);
@@ -316,8 +322,8 @@ impl BitBoard {
     /// 1 if colour rook like
     /// 0 if no colour rook like
     #[inline(always)]
-    pub const fn col_ortho_mask<const COLOUR: bool>(&self) -> u64 {
-        self.ortho_mask() & (self.colour_mask::<COLOUR>())
+    pub const fn col_ortho_mask<const TURN: bool>(&self) -> u64 {
+        self.ortho_mask() & (self.colour_mask::<TURN>())
     }
 
     /// colour 0 = white, u64::MAX = black
@@ -325,8 +331,8 @@ impl BitBoard {
     /// 0 if no colour rook cant attack
     /// Note: a queen is a rook
     #[inline(always)]
-    pub const fn ortho_attack_mask<const COLOUR: bool>(&self) -> u64 {
-        let rooks = self.col_ortho_mask::<COLOUR>();
+    pub const fn ortho_attack_mask<const TURN: bool>(&self) -> u64 {
+        let rooks = self.col_ortho_mask::<TURN>();
         self.ortho_like_attack_mask(rooks)
     }
 
@@ -352,16 +358,16 @@ impl BitBoard {
     /// 1 if colour king
     /// 0 if no colour king
     #[inline(always)]
-    pub const fn col_king_mask<const COLOUR: bool>(&self) -> u64 {
-        self.king_mask() & (self.colour_mask::<COLOUR>())
+    pub const fn col_king_mask<const TURN: bool>(&self) -> u64 {
+        self.king_mask() & (self.colour_mask::<TURN>())
     }
 
     /// colour 0 = white, u64::MAX = black
     /// 1 if colour king can attack
     /// 0 if no colour king cant attack
     #[inline(always)]
-    pub const fn king_attack_mask<const COLOUR: bool>(&self) -> u64 {
-        let kings = self.col_king_mask::<COLOUR>();
+    pub const fn king_attack_mask<const TURN: bool>(&self) -> u64 {
+        let kings = self.col_king_mask::<TURN>();
         let u = kings << 8;
         let d = kings >> 8;
         let mast =  kings | u | d;
@@ -369,22 +375,23 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn attack_mask<const COLOUR: bool>(&self) -> u64 {
-        self.pawn_attack_mask::<COLOUR>() |
-            self.knight_attack_mask::<COLOUR>() |
-            self.diagonal_attack_mask::<COLOUR>() |
-            self.ortho_attack_mask::<COLOUR>() |
-            self.king_attack_mask::<COLOUR>()
+    pub const fn attack_mask<const TURN: bool>(&self) -> u64 {
+        self.pawn_attack_mask::<TURN>() |
+            self.knight_attack_mask::<TURN>() |
+            self.diagonal_attack_mask::<TURN>() |
+            self.ortho_attack_mask::<TURN>() |
+            self.king_attack_mask::<TURN>()
     }
 
     #[inline(always)]
-    pub const fn check_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
-        let kings = self.col_king_mask::<COLOUR>();
+    pub const fn hor_check_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
-        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
+        let other_ortho = self.col_ortho_mask::<{!TURN}>();
+
         let mut mask = u64::MAX;
+
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, pieces, Self::LEFT_SIDE);
         if r1 & other_ortho != 0 {
             mask &= r1;
@@ -394,6 +401,18 @@ impl BitBoard {
         if r1 & other_ortho != 0 {
             mask &= r1;
         }
+
+        mask
+    }
+
+    #[inline(always)]
+    pub const fn vert_check_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
+        let pieces = self.piece_mask();
+        let other_ortho = self.col_ortho_mask::<{!TURN}>();
+
+        let mut mask = u64::MAX;
 
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 8, pieces, 0);
         if r1 & other_ortho != 0 {
@@ -405,15 +424,17 @@ impl BitBoard {
             mask &= r1;
         }
 
-        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
-        if r1 & other_diag != 0 {
-            mask &= r1;
-        }
+        mask
+    }
 
-        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 9, pieces, Self::RIGHT_SIDE);
-        if r1 & other_diag != 0 {
-            mask &= r1;
-        }
+    #[inline(always)]
+    pub const fn lr_check_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
+        let pieces = self.piece_mask();
+        let other_diag = self.col_diagonal_mask::<{!TURN}>();
+        
+        let mut mask = u64::MAX;
 
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 7, pieces, Self::LEFT_SIDE);
         if r1 & other_diag != 0 {
@@ -425,7 +446,42 @@ impl BitBoard {
             mask &= r1;
         }
 
-        let other_knights = Self::col_knight_mask::<{!COLOUR}>(self);
+        mask
+    }
+
+    #[inline(always)]
+    pub const fn rl_check_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
+        let pieces = self.piece_mask();
+        let other_diag = self.col_diagonal_mask::<{!TURN}>();
+        
+        let mut mask = u64::MAX;
+
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
+        if r1 & other_diag != 0 {
+            mask &= r1;
+        }
+
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 9, pieces, Self::RIGHT_SIDE);
+        if r1 & other_diag != 0 {
+            mask &= r1;
+        }
+
+        mask
+    }
+
+    #[inline(always)]
+    pub const fn check_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let mut mask = u64::MAX;
+
+        mask &= self.hor_check_mask::<TURN>() & self.vert_check_mask::<TURN>() &
+                    self.lr_check_mask::<TURN>() & self.rl_check_mask::<TURN>();
+      
+        let kings = self.col_king_mask::<TURN>();
+
+        let other_knights = Self::col_knight_mask::<{!TURN}>(self);
         let knights_r2 = kings & !Self::RIGHT2_SIDE;
         let knights_r1 = kings & !Self::RIGHT_SIDE;
         let knights_l1 = kings & !Self::LEFT_SIDE;
@@ -456,9 +512,9 @@ impl BitBoard {
             mask &= knights_r2 << 10;
         }
 
-        let other_pawns = Self::col_pawn_mask::<{!COLOUR}>(self);
+        let other_pawns = Self::col_pawn_mask::<{!TURN}>(self);
 
-        if COLOUR {
+        if TURN {
             if (kings << 9) & !Self::RIGHT_SIDE & other_pawns != 0 {
                 mask &= kings << 9;
             }
@@ -478,12 +534,12 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn vert_pin_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
-        let kings = self.col_king_mask::<COLOUR>();
+    pub const fn vert_pin_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<COLOUR>();
-        let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
+        //let own_pieces = self.col_piece_mask::<TURN>();
+        let other_ortho = self.col_ortho_mask::<{!TURN}>();
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 8, pieces, 0);
         let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & pieces, 8, pieces, 0);
@@ -501,12 +557,12 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn hor_pin_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
-        let kings = self.col_king_mask::<COLOUR>();
+    pub const fn hor_pin_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<COLOUR>();
-        let other_ortho = self.col_ortho_mask::<{!COLOUR}>();
+        //let own_pieces = self.col_piece_mask::<TURN>();
+        let other_ortho = self.col_ortho_mask::<{!TURN}>();
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, pieces, Self::LEFT_SIDE);
         let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & pieces, 1, pieces, Self::LEFT_SIDE);
         let mut mask = 0;
@@ -524,17 +580,17 @@ impl BitBoard {
     }
 
     #[inline(always)]
-    pub const fn ortho_pin_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
+    pub const fn ortho_pin_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
         self.hor_pin_mask() | self.vert_pin_mask()
     }
 
-    pub const fn lr_pin_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
-        let kings = self.col_king_mask::<COLOUR>();
+    pub const fn lr_pin_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<COLOUR>();
-        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
+        //let own_pieces = self.col_piece_mask::<TURN>();
+        let other_diag = self.col_diagonal_mask::<{!TURN}>();
 
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 7, pieces, Self::LEFT_SIDE);
@@ -552,12 +608,12 @@ impl BitBoard {
         mask
     }
 
-    pub const fn rl_pin_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
-        let kings = self.col_king_mask::<COLOUR>();
+    pub const fn rl_pin_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<COLOUR>();
-        let other_diag = self.col_diagonal_mask::<{!COLOUR}>();
+        //let own_pieces = self.col_piece_mask::<TURN>();
+        let other_diag = self.col_diagonal_mask::<{!TURN}>();
 
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
@@ -575,8 +631,8 @@ impl BitBoard {
         mask
     }
 
-    pub const fn diagonal_pin_mask<const COLOUR: bool>(&self) -> u64
-    where BoolExists<{!COLOUR}>: Sized {
+    pub const fn diagonal_pin_mask<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
         self.lr_pin_mask() | self.rl_pin_mask()
     }
 
@@ -805,7 +861,7 @@ impl BitBoard {
         let diagonal_pins = self.diagonal_pin_mask::<TURN>();
 
         let mut free_rooks = self.col_ortho_mask::<TURN>() & !diagonal_pins & !ortho_pins;
-        let mut pin_rooks = self.col_ortho_mask::<TURN>() & diagonal_pins;
+        let mut pin_rooks = self.col_ortho_mask::<TURN>() & ortho_pins;
 
         while free_rooks != 0 {
             let from_idx = free_rooks.trailing_zeros() as u8;
@@ -834,21 +890,51 @@ impl BitBoard {
     pub fn gen_king_moves<const TURN: bool, const WQ: bool,
     const WK: bool, const BQ: bool, const BK: bool, Mov: OnMove>(&self, on_move: &mut Mov)
     where BoolExists<{!TURN}>: Sized {
+        let empty = !self.piece_mask();
+        let enemies = self.col_piece_mask::<{!TURN}>();
         let other_attacks = self.attack_mask::<{!TURN}>();
         let base_mask = self.enemy_or_empty::<TURN>() & !other_attacks;
         let king = self.col_king_mask::<TURN>();
 
         let from_idx = king.trailing_zeros() as u8;
         let mut to_mask = self.king_attack_mask::<TURN>() & base_mask;
+        
+        if self.hor_check_mask::<TURN>() != u64::MAX {
+            to_mask &= !((!Self::LEFT_SIDE & (king >> 1) | !Self::RIGHT_SIDE & (king << 1)) & !enemies);
+        } 
+
+        if self.vert_check_mask::<TURN>() != u64::MAX {
+            to_mask &= !(((king >> 8) | (king << 8)) & !enemies);
+        }
+
+        if self.lr_check_mask::<TURN>() != u64::MAX {
+            to_mask &= !((!Self::RIGHT_SIDE & (king >> 7) | !Self::LEFT_SIDE & (king << 7)) & !enemies);
+
+        } 
+
+        if self.rl_check_mask::<TURN>() != u64::MAX {
+            to_mask &= !((!Self::LEFT_SIDE & (king >> 9) | !Self::RIGHT_SIDE & (king << 9)) & !enemies);
+        }
+
         while to_mask != 0 {
             let to_idx = to_mask.trailing_zeros() as u8;
             on_move.on_king_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
             to_mask &= to_mask - 1;
         }
-        if (WK || BK) && (king >> 1) & base_mask != 0 && (king >> 2) & base_mask != 0 {
+
+        if WK && ((0b00000110 & empty) + 8) & !other_attacks == 0b00001110 {
             on_move.on_ks_castle::<TURN, WQ, WK, BQ, BK>(self);
         }
-        if (WQ || BQ) && (king << 1) & base_mask != 0 && (king << 2) & base_mask != 0 {
+
+        if BK && ((0b00000110 & (empty >> 56)) + 8) & (!other_attacks >> 56) == 0b00001110 {
+            on_move.on_ks_castle::<TURN, WQ, WK, BQ, BK>(self);
+        }
+
+        if WQ && ((0b01110000 & empty) >> 1) & !other_attacks == 0b00111000 {
+            on_move.on_qs_castle::<TURN, WQ, WK, BQ, BK>(self);
+        }
+
+        if BQ && ((0b01110000 & (empty >> 56)) >> 1) & (!other_attacks >> 56) == 0b00111000 {
             on_move.on_qs_castle::<TURN, WQ, WK, BQ, BK>(self);
         }
     }
@@ -888,7 +974,7 @@ pub struct BitBoardGame {
 }
 
 impl ChessGame for BitBoardGame {
-    type Move = BitBoardGame;
+    type Move = BitBoardGameMove;
 
     type UnMove = BitBoardGame;
 
@@ -1035,7 +1121,7 @@ impl ChessGame for BitBoardGame {
 
     fn do_move(&mut self, mov: &Self::Move) -> Self::UnMove {
         let un = self.clone();
-        *self = mov.clone();
+        *self = mov.clone().bbg;
         un
     }
 
@@ -1092,13 +1178,19 @@ impl Display for BitBoardGame {
     }
 }
 
-impl Move for BitBoardGame {
+impl Display for BitBoardGameMove {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.bbg))
+    }
+}
+
+impl Move for BitBoardGameMove {
     fn to_uci(&self) -> String {
-        // let ox = ('a' as u8 + (self.packed & 7) as u8) as char;
-        // let oy = ('1' as u8 + ((self.packed >> 3) & 7) as u8) as char;
-        // let nx = ('a' as u8 + ((self.packed >> 6) & 7) as u8) as char;
-        // let ny = ('1' as u8 + ((self.packed >> 9) & 7) as u8) as char;
-        format!("{}", self)
+        let ox = ('h' as u8 - (self.mov & 7) as u8) as char;
+        let oy = ('1' as u8 + ((self.mov >> 3) & 7) as u8) as char;
+        let nx = ('h' as u8 - ((self.mov >> 6) & 7) as u8) as char;
+        let ny = ('1' as u8 + ((self.mov >> 9) & 7) as u8) as char;
+        format!("{ox}{oy}{nx}{ny}, {:x}", self.mov)
     }
 }
 
@@ -1110,7 +1202,7 @@ impl BitBoardGame {
 }
 
 struct GenericMoveGenerator {
-    next: Vec<BitBoardGame>
+    next: Vec<BitBoardGameMove>
 }
 
 impl OnMove for GenericMoveGenerator {
@@ -1119,7 +1211,9 @@ impl OnMove for GenericMoveGenerator {
         let mut b = me.clone();
         b.mov(from, to);
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
-        self.next.push(next_state);
+        let next_move = ((to as u16) << 6) + from as u16;
+        let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+        self.next.push(next_bbgm);
     }
 
     fn on_rook_move<const TURN: bool, const WQ: bool,
@@ -1128,7 +1222,9 @@ impl OnMove for GenericMoveGenerator {
         b.mov(from, to);
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ && from != 7,
                 WK && from != 0, BQ && from != 63, BK && from != 56, None);
-        self.next.push(next_state);
+        let next_move = ((to as u16) << 6) + from as u16;
+        let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+        self.next.push(next_bbgm);
     }
 
     fn on_king_move<const TURN: bool, const WQ: bool,
@@ -1136,7 +1232,9 @@ impl OnMove for GenericMoveGenerator {
         let mut b = me.clone();
         b.mov(from, to);
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ && !TURN, WK && !TURN, BQ && TURN, BK && TURN, None);
-        self.next.push(next_state);
+        let next_move = ((to as u16) << 6) + from as u16;
+        let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+        self.next.push(next_bbgm);
     }
 
     fn on_ep_move<const TURN: bool, const WQ: bool,
@@ -1150,7 +1248,9 @@ impl OnMove for GenericMoveGenerator {
             b.clear(to + 8);
         }
         let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
-        self.next.push(next_state);
+        let next_move = ((to as u16) << 6) + from as u16;
+        let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+        self.next.push(next_bbgm);
     }
 
     fn on_qs_castle<const TURN: bool, const WQ: bool,
@@ -1160,13 +1260,17 @@ impl OnMove for GenericMoveGenerator {
             b.mov(7, 4);
             b.mov(3, 5);
             let next_state = BitBoardGame::from_parts(b, !TURN, false, false, BQ, BK, None);
-            self.next.push(next_state);
+            let next_move = (5 << 6) + 3;
+            let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+            self.next.push(next_bbgm);
         }
         else {
             b.mov(63, 60);
             b.mov(59, 61);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, false, false, None);
-            self.next.push(next_state);
+            let next_move = (61 << 6) + 59;
+            let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+            self.next.push(next_bbgm);
         }
     }
 
@@ -1177,13 +1281,17 @@ impl OnMove for GenericMoveGenerator {
             b.mov(0, 2);
             b.mov(3, 1);
             let next_state = BitBoardGame::from_parts(b, !TURN, false, false, BQ, BK, None);
-            self.next.push(next_state);
+            let next_move = (1 << 6) + 3;
+            let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+            self.next.push(next_bbgm);
         }
         else {
             b.mov(56, 58);
             b.mov(59, 57);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, false, false, None);
-            self.next.push(next_state);
+            let next_move = (57 << 6) + 59;
+            let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+            self.next.push(next_bbgm);
         }
     }
 
@@ -1194,12 +1302,16 @@ impl OnMove for GenericMoveGenerator {
         if TURN {
             b.mov(from, from + 16);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from + 8));
-            self.next.push(next_state);
+            let next_move = ((from as u16 + 16) << 6) + from as u16;
+            let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+            self.next.push(next_bbgm);
         }
         else {
             b.mov(from, from - 16);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from - 8));
-            self.next.push(next_state);
+            let next_move = ((from as u16 - 16) << 6) + from as u16;
+            let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
+            self.next.push(next_bbgm);
         }
     }
 }
