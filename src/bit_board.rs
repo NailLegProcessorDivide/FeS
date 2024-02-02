@@ -40,7 +40,7 @@ pub struct BitBoard {
 #[derive(Clone)]
 pub struct BitBoardGameMove {
     mov: u16,
-    bbg: BitBoardGame 
+    bbg: BitBoardGame
 }
 
 #[derive(ConstParamTy, PartialEq, Eq)]
@@ -167,22 +167,6 @@ impl BitBoard {
         self.pawn_mask() & self.colour_mask::<TURN>()
     }
 
-    /// colour 0 = white, u64::MAX = black
-    /// 1 if colour pawn
-    /// 0 if no colour pawn
-    #[inline(always)]
-    pub const fn pawn_attack_mask<const TURN: bool>(&self) -> u64 {
-        let pawns = self.col_pawn_mask::<TURN>();
-        if TURN {
-            ((pawns << 9) & !Self::RIGHT_SIDE) |
-            ((pawns << 7) & !Self::LEFT_SIDE)
-        }
-        else {
-            ((pawns >> 7) & !Self::RIGHT_SIDE) |
-            ((pawns >> 9) & !Self::LEFT_SIDE)
-        }
-    }
-
     #[inline(always)]
     pub const fn pawn_like_attack_mask<const TURN: bool>(&self, pieces: u64) -> u64 {
         if TURN {
@@ -195,31 +179,13 @@ impl BitBoard {
         }
     }
 
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour pawn
+    /// 0 if no colour pawn
     #[inline(always)]
-    pub const fn pawn_move_mask<const TURN: bool>(&self) -> u64 {
+    pub const fn pawn_attack_mask<const TURN: bool>(&self) -> u64 {
         let pawns = self.col_pawn_mask::<TURN>();
-        let pieces = self.piece_mask();
-
-        if TURN {
-            let step = (pawns << 8) & !pieces;
-            step | ((step << 8) & !pieces & 0xff000000)
-        } else {
-            let step = (pawns >> 8) & !pieces;
-            step | ((step >> 8) & !pieces & 0xff00000000)
-        }
-    }
-
-    #[inline(always)]
-    pub const fn pawn_like_move_mask<const TURN: bool>(&self, pieces: u64) -> u64 {
-        let blockers = self.piece_mask();
-
-        if TURN {
-            let step = (pieces << 8) & !blockers;
-            step | ((step << 8) & !blockers & 0xff000000)
-        } else {
-            let step = (pieces >> 8) & !blockers;
-            step | ((step >> 8) & !blockers & 0xff00000000)
-        }
+        self.pawn_like_attack_mask::<TURN>(pawns)
     }
 
     /// 1 if knight
@@ -237,25 +203,6 @@ impl BitBoard {
         self.knight_mask() & (self.colour_mask::<TURN>())
     }
 
-    /// colour 0 = white, u64::MAX = black
-    /// 1 if colour knight can attack
-    /// 0 if no colour knight cant attack
-    #[inline(always)]
-    pub const fn knight_attack_mask<const TURN: bool>(&self) -> u64 {
-        let knights = self.col_knight_mask::<TURN>();
-        //0b11111100
-        let knights_r2 = knights & !Self::RIGHT2_SIDE;
-        //0b11111110
-        let knights_r1 = knights & !Self::RIGHT_SIDE;
-        //0b11111100
-        let knights_l1 = knights & !Self::LEFT_SIDE;
-        //0b11111110
-        let knights_l2 = knights & !Self::LEFT2_SIDE;
-        let inner = (knights_r1 >> 1) | (knights_l1 << 1);
-        let outer = (knights_r2 >> 2) | (knights_l2 << 2);
-        (outer << 8) | (outer >> 8) | (inner << 16) | (inner >> 16)
-    }
-
     #[inline(always)]
     pub const fn knight_like_attack_mask(&self, pieces: u64) -> u64 {
         //0b11111100
@@ -269,6 +216,15 @@ impl BitBoard {
         let inner = (knights_r1 >> 1) | (knights_l1 << 1);
         let outer = (knights_r2 >> 2) | (knights_l2 << 2);
         (outer << 8) | (outer >> 8) | (inner << 16) | (inner >> 16)
+    }
+
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour knight can attack
+    /// 0 if no colour knight cant attack
+    #[inline(always)]
+    pub const fn knight_attack_mask<const TURN: bool>(&self) -> u64 {
+        let knights = self.col_knight_mask::<TURN>();
+        self.knight_like_attack_mask(knights)
     }
 
     /// 1 if bishop like
@@ -286,21 +242,6 @@ impl BitBoard {
         self.diagonal_mask() & (self.colour_mask::<TURN>())
     }
 
-    /// colour 0 = white, u64::MAX = black
-    /// 1 if colour bishop can attack
-    /// 0 if no colour bishop cant attack
-    /// Note: a queen is a bishop
-    #[inline(always)]
-    pub const fn diagonal_attack_mask<const TURN: bool>(&self) -> u64 {
-        let bishops = self.col_diagonal_mask::<TURN>();
-        let pieces = self.piece_mask();
-        let ur = Self::sliding_mask::<{Shift::Left}>(bishops, 7, pieces, Self::LEFT_SIDE);
-        let ul = Self::sliding_mask::<{Shift::Left}>(bishops, 9, pieces, Self::RIGHT_SIDE);
-        let dr = Self::sliding_mask::<{Shift::Right}>(bishops, 9, pieces, Self::LEFT_SIDE);
-        let dl = Self::sliding_mask::<{Shift::Right}>(bishops, 7, pieces, Self::RIGHT_SIDE);
-        ur | ul | dr | dl
-    }
-
     #[inline(always)]
     pub const fn diagonal_like_attack_mask(&self, pieces: u64) -> u64 {
         let blockers = self.piece_mask();
@@ -309,6 +250,16 @@ impl BitBoard {
         let dr = Self::sliding_mask::<{Shift::Right}>(pieces, 9, blockers, Self::LEFT_SIDE);
         let dl = Self::sliding_mask::<{Shift::Right}>(pieces, 7, blockers, Self::RIGHT_SIDE);
         ur | ul | dr | dl
+    }
+
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour bishop can attack
+    /// 0 if no colour bishop cant attack
+    /// Note: a queen is a bishop
+    #[inline(always)]
+    pub const fn diagonal_attack_mask<const TURN: bool>(&self) -> u64 {
+        let bishops = self.col_diagonal_mask::<TURN>();
+        self.diagonal_like_attack_mask(bishops)
     }
 
     /// 1 if rook like
@@ -326,16 +277,6 @@ impl BitBoard {
         self.ortho_mask() & (self.colour_mask::<TURN>())
     }
 
-    /// colour 0 = white, u64::MAX = black
-    /// 1 if colour rook can attack
-    /// 0 if no colour rook cant attack
-    /// Note: a queen is a rook
-    #[inline(always)]
-    pub const fn ortho_attack_mask<const TURN: bool>(&self) -> u64 {
-        let rooks = self.col_ortho_mask::<TURN>();
-        self.ortho_like_attack_mask(rooks)
-    }
-
     #[inline(always)]
     pub const fn ortho_like_attack_mask(&self, pieces: u64) -> u64 {
         let blockers = self.piece_mask();
@@ -346,6 +287,15 @@ impl BitBoard {
         r | l | u | d
     }
 
+    /// colour 0 = white, u64::MAX = black
+    /// 1 if colour rook can attack
+    /// 0 if no colour rook cant attack
+    /// Note: a queen is a rook
+    #[inline(always)]
+    pub const fn ortho_attack_mask<const TURN: bool>(&self) -> u64 {
+        let rooks = self.col_ortho_mask::<TURN>();
+        self.ortho_like_attack_mask(rooks)
+    }
 
     /// 1 if king
     /// 0 if no king
@@ -433,7 +383,7 @@ impl BitBoard {
         let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
         let other_diag = self.col_diagonal_mask::<{!TURN}>();
-        
+
         let mut mask = u64::MAX;
 
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 7, pieces, Self::LEFT_SIDE);
@@ -455,7 +405,7 @@ impl BitBoard {
         let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
         let other_diag = self.col_diagonal_mask::<{!TURN}>();
-        
+
         let mut mask = u64::MAX;
 
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 9, pieces, Self::LEFT_SIDE);
@@ -478,7 +428,7 @@ impl BitBoard {
 
         mask &= self.hor_check_mask::<TURN>() & self.vert_check_mask::<TURN>() &
                     self.lr_check_mask::<TURN>() & self.rl_check_mask::<TURN>();
-      
+
         let kings = self.col_king_mask::<TURN>();
 
         let other_knights = Self::col_knight_mask::<{!TURN}>(self);
@@ -494,22 +444,22 @@ impl BitBoard {
             mask &= knights_r2 << 6;
         }
         if (knights_r1 >> 17) & other_knights != 0 {
-            mask &= knights_r2 >> 17;
+            mask &= knights_r1 >> 17;
         }
         if (knights_r1 << 15) & other_knights != 0 {
-            mask &= knights_r2 << 15;
+            mask &= knights_r1 << 15;
         }
         if (knights_l1 >> 15) & other_knights != 0 {
-            mask &= knights_r2 >> 15;
+            mask &= knights_l1 >> 15;
         }
         if (knights_l1 << 17) & other_knights != 0 {
-            mask &= knights_r2 << 17;
+            mask &= knights_l1 << 17;
         }
         if (knights_l2 >> 6) & other_knights != 0 {
-            mask &= knights_r2 >> 6;
+            mask &= knights_l2 >> 6;
         }
         if (knights_l2 << 10) & other_knights != 0 {
-            mask &= knights_r2 << 10;
+            mask &= knights_l2 << 10;
         }
 
         let other_pawns = Self::col_pawn_mask::<{!TURN}>(self);
@@ -538,8 +488,8 @@ impl BitBoard {
     where BoolExists<{!TURN}>: Sized {
         let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<TURN>();
         let other_ortho = self.col_ortho_mask::<{!TURN}>();
+
         let mut mask = 0;
         let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 8, pieces, 0);
         let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & pieces, 8, pieces, 0);
@@ -561,8 +511,8 @@ impl BitBoard {
     where BoolExists<{!TURN}>: Sized {
         let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<TURN>();
         let other_ortho = self.col_ortho_mask::<{!TURN}>();
+
         let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, pieces, Self::LEFT_SIDE);
         let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & pieces, 1, pieces, Self::LEFT_SIDE);
         let mut mask = 0;
@@ -579,6 +529,33 @@ impl BitBoard {
         mask
     }
 
+    // Horizontal pin that goes through two pieces
+    #[inline(always)]
+    pub const fn hor_pin_mask2<const TURN: bool>(&self) -> u64
+    where BoolExists<{!TURN}>: Sized {
+        let kings = self.col_king_mask::<TURN>();
+        let blockers = self.piece_mask();
+        let other_ortho = self.col_ortho_mask::<{!TURN}>();
+
+        let r1 = Self::sliding_mask::<{Shift::Right}>(kings, 1, blockers, Self::LEFT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Right}>(r1 & blockers, 1, blockers, Self::LEFT_SIDE);
+        let r3 = Self::sliding_mask::<{Shift::Right}>(r2 & blockers, 1, blockers, Self::LEFT_SIDE);
+        let mut mask = 0;
+        if r3 & other_ortho != 0 {
+            mask |= r1 | r2 | r3;
+        }
+
+        let r1 = Self::sliding_mask::<{Shift::Left}>(kings, 1, blockers, Self::RIGHT_SIDE);
+        let r2 = Self::sliding_mask::<{Shift::Left}>(r1 & blockers, 1, blockers, Self::RIGHT_SIDE);
+        let r3 = Self::sliding_mask::<{Shift::Left}>(r2 & blockers, 1, blockers, Self::RIGHT_SIDE);
+        if r3 & other_ortho != 0 {
+            mask |= r1 | r2 | r3;
+        }
+
+        mask
+    }
+
+
     #[inline(always)]
     pub const fn ortho_pin_mask<const TURN: bool>(&self) -> u64
     where BoolExists<{!TURN}>: Sized {
@@ -589,7 +566,6 @@ impl BitBoard {
     where BoolExists<{!TURN}>: Sized {
         let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<TURN>();
         let other_diag = self.col_diagonal_mask::<{!TURN}>();
 
         let mut mask = 0;
@@ -612,7 +588,6 @@ impl BitBoard {
     where BoolExists<{!TURN}>: Sized {
         let kings = self.col_king_mask::<TURN>();
         let pieces = self.piece_mask();
-        //let own_pieces = self.col_piece_mask::<TURN>();
         let other_diag = self.col_diagonal_mask::<{!TURN}>();
 
         let mut mask = 0;
@@ -744,19 +719,19 @@ impl BitBoard {
             }
             while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
-                if empty & (1 << (from_idx + 7)) != 0 {
-                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
-                } else {
+                if empty & (1 << (from_idx + 7)) == 0 {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
+                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 4)) == 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 7);
                 }
                 lr &= lr - 1;
             }
             while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
-                if empty & (1 << (from_idx + 9)) != 0 {
-                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
-                } else {
+                if empty & (1 << (from_idx + 9)) == 0 {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
+                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 4)) == 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
                 }
                 rl &= rl - 1;
             }
@@ -778,19 +753,19 @@ impl BitBoard {
             }
             while lr != 0 {
                 let from_idx = lr.trailing_zeros() as u8;
-                if empty & (1 << (from_idx - 7)) != 0 {
-                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
-                } else {
+                if empty & (1 << (from_idx - 7)) == 0 {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
+                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 3)) == 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
                 }
                 lr &= lr - 1;
             }
             while rl != 0 {
                 let from_idx = rl.trailing_zeros() as u8;
-                if empty & (1 << (from_idx - 9)) != 0 {
-                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
-                } else {
+                if empty & (1 << (from_idx - 9)) == 0 {
                     on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
+                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 3)) == 0 {
+                    on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 9);
                 }
                 rl &= rl - 1;
             }
@@ -898,10 +873,11 @@ impl BitBoard {
 
         let from_idx = king.trailing_zeros() as u8;
         let mut to_mask = self.king_attack_mask::<TURN>() & base_mask;
-        
+
         if self.hor_check_mask::<TURN>() != u64::MAX {
+            to_mask &= !Self::LEFT_SIDE & (king >> 1) & !(self.like)
             to_mask &= !((!Self::LEFT_SIDE & (king >> 1) | !Self::RIGHT_SIDE & (king << 1)) & !enemies);
-        } 
+        }
 
         if self.vert_check_mask::<TURN>() != u64::MAX {
             to_mask &= !(((king >> 8) | (king << 8)) & !enemies);
@@ -910,7 +886,7 @@ impl BitBoard {
         if self.lr_check_mask::<TURN>() != u64::MAX {
             to_mask &= !((!Self::RIGHT_SIDE & (king >> 7) | !Self::LEFT_SIDE & (king << 7)) & !enemies);
 
-        } 
+        }
 
         if self.rl_check_mask::<TURN>() != u64::MAX {
             to_mask &= !((!Self::LEFT_SIDE & (king >> 9) | !Self::RIGHT_SIDE & (king << 9)) & !enemies);
@@ -1190,7 +1166,7 @@ impl Move for BitBoardGameMove {
         let oy = ('1' as u8 + ((self.mov >> 3) & 7) as u8) as char;
         let nx = ('h' as u8 - ((self.mov >> 6) & 7) as u8) as char;
         let ny = ('1' as u8 + ((self.mov >> 9) & 7) as u8) as char;
-        format!("{ox}{oy}{nx}{ny}, {:x}", self.mov)
+        format!("{ox}{oy}{nx}{ny}")
     }
 }
 
@@ -1210,7 +1186,7 @@ impl OnMove for GenericMoveGenerator {
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
         let mut b = me.clone();
         b.mov(from, to);
-        let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, None);
+        let next_state = BitBoardGame::from_parts(b, !TURN, to != 7 && WQ, to != 0 && WK, to != 63 && BQ, to != 56 && BK, None);
         let next_move = ((to as u16) << 6) + from as u16;
         let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
         self.next.push(next_bbgm);
@@ -1298,7 +1274,6 @@ impl OnMove for GenericMoveGenerator {
     fn on_pawn_push2<const TURN: bool, const WQ: bool,
         const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8) {
         let mut b = me.clone();
-        // println!("p2 {from}");
         if TURN {
             b.mov(from, from + 16);
             let next_state = BitBoardGame::from_parts(b, !TURN, WQ, WK, BQ, BK, Some(from + 8));

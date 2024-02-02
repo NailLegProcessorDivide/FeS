@@ -4,22 +4,16 @@ use fes::{
 };
 
 fn main() {
-    let mut gs = BitBoardGame::from_fen("rnQqkbnr/p1p1pppp/8/1p1p4/8/4P3/PPPP1PPP/RNB1KBNR b KQkq - 0 3").unwrap();
+    let mut gs = BitBoardGame::from_fen("8/2p5/3p4/KP5r/1R2Pp1k/8/6P1/8 b - - 0 1").unwrap();
 
     println!();
 
-    let enemies = gs.board.col_piece_mask::<{!false}>();
-    let other_attacks = gs.board.attack_mask::<{!false}>();
-    let base_mask = gs.board.enemy_or_empty::<false>() & !other_attacks;
-    let king = gs.board.col_king_mask::<false>();
 
-    let from_idx = king.trailing_zeros() as u8;
-    let mut to_mask = gs.board.king_attack_mask::<false>() & base_mask;
+    print_bitmask(gs.board.hor_pin_mask2::<false>() & (0xff << (8 * 3)));
 
-    print_bitmask(gs.board.hor_pin_mask::<false>());
+
 
     println!("\n\n");
-
 
     gs.moves();
 }
