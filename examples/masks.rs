@@ -8,8 +8,14 @@ fn main() {
 
     println!();
 
+    gs.board.set(63, 0b1011);
 
-    print_bitmask(gs.board.hor_pin_mask2::<false>() & (0xff << (8 * 3)));
+    gs.board.set(8, 0b0011);
+
+
+    print!("{}", gs.board);
+
+    //print_bitmask(gs.board.hor_pin_mask2::<false>() & (0xff << (8 * 3)));
 
 
 

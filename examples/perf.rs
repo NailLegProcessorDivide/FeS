@@ -1,7 +1,7 @@
 use std::io::{self, BufRead};
 
 use fes::{
-    bit_board::{BitBoardGame},
+    bit_board::BitBoardGame,
     game::{ChessGame, Move},
 };
 
@@ -38,12 +38,37 @@ pub fn perft_div<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
 fn main() {
     let stdin = io::stdin();
     let mut iterator = stdin.lock().lines();
-    let fen = iterator.next().unwrap().unwrap();
-    let depthstr = iterator.next().unwrap().unwrap();
- 
-    let depth = depthstr.parse::<usize>().unwrap();
 
-    let mut gs = BitBoardGame::from_fen(&fen).unwrap();
+    let mut gs = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
 
-    perft_div(&mut gs, depth);
+    loop {
+        let input = iterator.next().unwrap().unwrap();
+        let mut parts = input.trim().split(" ");
+
+        match parts.next() {
+            Some(x) => match x {
+                        "fen" => {
+                            let fen = input[3..].trim();
+                            gs = BitBoardGame::from_fen(&fen).unwrap();
+                        }
+                        "move" => {
+                            for ucimov in parts {
+                                for mov in gs.moves().iter() {
+                                    if ucimov == mov.to_uci() {
+                                        gs.do_move(mov);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        "perft" => {
+                            let depth = parts.next().unwrap().parse::<usize>().unwrap();
+                            perft_div(&mut gs, depth);
+                        }
+                        "quit" => { break; }
+                        _ => { println!("Unrecognised command.") }
+                    },
+            None => {}
+        }
+    }
 }
