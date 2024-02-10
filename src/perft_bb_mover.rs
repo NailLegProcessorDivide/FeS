@@ -224,4 +224,9 @@ impl OnMove for PerftMove {
         }
         self.depth -= 1;
     }
+
+    fn on_promotion<const TURN: bool, const WQ: bool,
+        const WK: bool, const BQ: bool, const BK: bool>(&mut self, _me: &BitBoard, _from: u8, _to: u8, _piece: u8) {
+        todo!()
+    }
 }

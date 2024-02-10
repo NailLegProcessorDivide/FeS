@@ -89,7 +89,7 @@ impl FesMoveDet {
 }
 
 impl Display for FesMoveDet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
@@ -435,7 +435,7 @@ impl ChessGame for GameState {
         moves
     }
 
-    fn gen_alg(&mut self, mov: &Self::Move) -> AlgebraicMove {
+    fn gen_alg(&mut self, _mov: &Self::Move) -> AlgebraicMove {
         todo!()
     }
 }
