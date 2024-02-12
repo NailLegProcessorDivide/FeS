@@ -52,8 +52,6 @@ pub enum Shift {
 pub trait OnMove {
     fn on_move<const TURN: bool, const WQ: bool,
         const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
-    fn on_rook_move<const TURN: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
     fn on_king_move<const TURN: bool, const WQ: bool,
         const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8);
     fn on_ep_move<const TURN: bool, const WQ: bool,
@@ -469,7 +467,7 @@ impl BitBoard {
         if (knights_l2 << 10) & other_knights != 0 {
             mask &= knights_l2 << 10;
         }
-        
+
         let other_pawns = Self::col_pawn_mask::<{!TURN}>(self);
 
         if TURN {
@@ -802,7 +800,7 @@ impl BitBoard {
                     } else {
                         on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
                     }
-                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 4)) == 0  && 
+                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 4)) == 0  &&
                             check_mask & (1 << (from_idx + 1)) != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx + 9);
                 }
@@ -842,7 +840,7 @@ impl BitBoard {
                     } else {
                         on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
                     }
-                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 3)) == 0 && 
+                } else if self.hor_pin_mask2::<TURN>() & (0xff << (8 * 3)) == 0 &&
                             check_mask & (1 << (from_idx + 1)) != 0 {
                     on_move.on_ep_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, from_idx - 7);
                 }
@@ -939,7 +937,7 @@ impl BitBoard {
             let mut to_mask = self.ortho_like_attack_mask(1 << from_idx) & base_mask;
             while to_mask != 0 {
                 let to_idx = to_mask.trailing_zeros() as u8;
-                on_move.on_rook_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             free_rooks &= free_rooks - 1;
@@ -950,7 +948,7 @@ impl BitBoard {
             let mut to_mask = self.ortho_like_attack_mask(1 << from_idx) & base_mask & ortho_pins;
             while to_mask != 0 {
                 let to_idx = to_mask.trailing_zeros() as u8;
-                on_move.on_rook_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
+                on_move.on_move::<TURN, WQ, WK, BQ, BK>(self, from_idx, to_idx);
                 to_mask &= to_mask - 1;
             }
             pin_rooks &= pin_rooks - 1;
@@ -970,7 +968,7 @@ impl BitBoard {
         let mut to_mask = self.king_attack_mask::<TURN>() & base_mask;
 
         if self.hor_check_mask::<TURN>() != u64::MAX {
-            to_mask &= !((!Self::LEFT_SIDE & (king >> 1) | !Self::RIGHT_SIDE & (king << 1)) & 
+            to_mask &= !((!Self::LEFT_SIDE & (king >> 1) | !Self::RIGHT_SIDE & (king << 1)) &
                           !self.col_ortho_mask::<{!TURN}>());
         }
 
@@ -1121,74 +1119,9 @@ impl ChessGame for BitBoardGame {
         todo!()
     }
 
-    fn moves(&mut self) -> Vec<Self::Move> {
-        let mut genny = GenericMoveGenerator { next: Vec::new()};
-        match (self.turn, self.white_qs, self.white_ks, self.black_qs, self.black_ks, self.ep) {
-            (true , true , true , true , true , None)     => self.board.gen_moves::<true , true , true , true , true , GenericMoveGenerator>(&mut genny),
-            (true , true , true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , true , true , GenericMoveGenerator>(&mut genny, ep),
-            (true , true , true , true , false, None)     => self.board.gen_moves::<true , true , true , true , false, GenericMoveGenerator>(&mut genny),
-            (true , true , true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , true , false, GenericMoveGenerator>(&mut genny, ep),
-            (true , true , true , false, true , None)     => self.board.gen_moves::<true , true , true , false, true , GenericMoveGenerator>(&mut genny),
-            (true , true , true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , false, true , GenericMoveGenerator>(&mut genny, ep),
-            (true , true , true , false, false, None)     => self.board.gen_moves::<true , true , true , false, false, GenericMoveGenerator>(&mut genny),
-            (true , true , true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , false, false, GenericMoveGenerator>(&mut genny, ep),
-            (true , true , false, true , true , None)     => self.board.gen_moves::<true , true , false, true , true , GenericMoveGenerator>(&mut genny),
-            (true , true , false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, true , true , GenericMoveGenerator>(&mut genny, ep),
-            (true , true , false, true , false, None)     => self.board.gen_moves::<true , true , false, true , false, GenericMoveGenerator>(&mut genny),
-            (true , true , false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, true , false, GenericMoveGenerator>(&mut genny, ep),
-            (true , true , false, false, true , None)     => self.board.gen_moves::<true , true , false, false, true , GenericMoveGenerator>(&mut genny),
-            (true , true , false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, false, true , GenericMoveGenerator>(&mut genny, ep),
-            (true , true , false, false, false, None)     => self.board.gen_moves::<true , true , false, false, false, GenericMoveGenerator>(&mut genny),
-            (true , true , false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, false, false, GenericMoveGenerator>(&mut genny, ep),
-            (true , false, true , true , true , None)     => self.board.gen_moves::<true , false, true , true , true , GenericMoveGenerator>(&mut genny),
-            (true , false, true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , true , true , GenericMoveGenerator>(&mut genny, ep),
-            (true , false, true , true , false, None)     => self.board.gen_moves::<true , false, true , true , false, GenericMoveGenerator>(&mut genny),
-            (true , false, true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , true , false, GenericMoveGenerator>(&mut genny, ep),
-            (true , false, true , false, true , None)     => self.board.gen_moves::<true , false, true , false, true , GenericMoveGenerator>(&mut genny),
-            (true , false, true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , false, true , GenericMoveGenerator>(&mut genny, ep),
-            (true , false, true , false, false, None)     => self.board.gen_moves::<true , false, true , false, false, GenericMoveGenerator>(&mut genny),
-            (true , false, true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , false, false, GenericMoveGenerator>(&mut genny, ep),
-            (true , false, false, true , true , None)     => self.board.gen_moves::<true , false, false, true , true , GenericMoveGenerator>(&mut genny),
-            (true , false, false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, true , true , GenericMoveGenerator>(&mut genny, ep),
-            (true , false, false, true , false, None)     => self.board.gen_moves::<true , false, false, true , false, GenericMoveGenerator>(&mut genny),
-            (true , false, false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, true , false, GenericMoveGenerator>(&mut genny, ep),
-            (true , false, false, false, true , None)     => self.board.gen_moves::<true , false, false, false, true , GenericMoveGenerator>(&mut genny),
-            (true , false, false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, false, true , GenericMoveGenerator>(&mut genny, ep),
-            (true , false, false, false, false, None)     => self.board.gen_moves::<true , false, false, false, false, GenericMoveGenerator>(&mut genny),
-            (true , false, false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, false, false, GenericMoveGenerator>(&mut genny, ep),
-            (false, true , true , true , true , None)     => self.board.gen_moves::<false, true , true , true , true , GenericMoveGenerator>(&mut genny),
-            (false, true , true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , true , true , GenericMoveGenerator>(&mut genny, ep),
-            (false, true , true , true , false, None)     => self.board.gen_moves::<false, true , true , true , false, GenericMoveGenerator>(&mut genny),
-            (false, true , true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , true , false, GenericMoveGenerator>(&mut genny, ep),
-            (false, true , true , false, true , None)     => self.board.gen_moves::<false, true , true , false, true , GenericMoveGenerator>(&mut genny),
-            (false, true , true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , false, true , GenericMoveGenerator>(&mut genny, ep),
-            (false, true , true , false, false, None)     => self.board.gen_moves::<false, true , true , false, false, GenericMoveGenerator>(&mut genny),
-            (false, true , true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , false, false, GenericMoveGenerator>(&mut genny, ep),
-            (false, true , false, true , true , None)     => self.board.gen_moves::<false, true , false, true , true , GenericMoveGenerator>(&mut genny),
-            (false, true , false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, true , true , GenericMoveGenerator>(&mut genny, ep),
-            (false, true , false, true , false, None)     => self.board.gen_moves::<false, true , false, true , false, GenericMoveGenerator>(&mut genny),
-            (false, true , false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, true , false, GenericMoveGenerator>(&mut genny, ep),
-            (false, true , false, false, true , None)     => self.board.gen_moves::<false, true , false, false, true , GenericMoveGenerator>(&mut genny),
-            (false, true , false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, false, true , GenericMoveGenerator>(&mut genny, ep),
-            (false, true , false, false, false, None)     => self.board.gen_moves::<false, true , false, false, false, GenericMoveGenerator>(&mut genny),
-            (false, true , false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, false, false, GenericMoveGenerator>(&mut genny, ep),
-            (false, false, true , true , true , None)     => self.board.gen_moves::<false, false, true , true , true , GenericMoveGenerator>(&mut genny),
-            (false, false, true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , true , true , GenericMoveGenerator>(&mut genny, ep),
-            (false, false, true , true , false, None)     => self.board.gen_moves::<false, false, true , true , false, GenericMoveGenerator>(&mut genny),
-            (false, false, true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , true , false, GenericMoveGenerator>(&mut genny, ep),
-            (false, false, true , false, true , None)     => self.board.gen_moves::<false, false, true , false, true , GenericMoveGenerator>(&mut genny),
-            (false, false, true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , false, true , GenericMoveGenerator>(&mut genny, ep),
-            (false, false, true , false, false, None)     => self.board.gen_moves::<false, false, true , false, false, GenericMoveGenerator>(&mut genny),
-            (false, false, true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , false, false, GenericMoveGenerator>(&mut genny, ep),
-            (false, false, false, true , true , None)     => self.board.gen_moves::<false, false, false, true , true , GenericMoveGenerator>(&mut genny),
-            (false, false, false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, true , true , GenericMoveGenerator>(&mut genny, ep),
-            (false, false, false, true , false, None)     => self.board.gen_moves::<false, false, false, true , false, GenericMoveGenerator>(&mut genny),
-            (false, false, false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, true , false, GenericMoveGenerator>(&mut genny, ep),
-            (false, false, false, false, true , None)     => self.board.gen_moves::<false, false, false, false, true , GenericMoveGenerator>(&mut genny),
-            (false, false, false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, false, true , GenericMoveGenerator>(&mut genny, ep),
-            (false, false, false, false, false, None)     => self.board.gen_moves::<false, false, false, false, false, GenericMoveGenerator>(&mut genny),
-            (false, false, false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, false, false, GenericMoveGenerator>(&mut genny, ep),
-        }
+    fn moves(&self) -> Vec<Self::Move> {
+        let mut genny = GenericMoveGenerator { next: Vec::with_capacity(240)};
+        self.proc_movs(&mut genny);
         genny.next
     }
 
@@ -1204,6 +1137,77 @@ impl ChessGame for BitBoardGame {
 
     fn gen_alg(&mut self, _mov: &Self::Move) -> AlgebraicMove {
         todo!()
+    }
+}
+
+impl BitBoardGame {
+    pub fn proc_movs<MOV: OnMove>(&self, mov: &mut MOV) {
+        match (self.turn, self.white_qs, self.white_ks, self.black_qs, self.black_ks, self.ep) {
+            (true , true , true , true , true , None)     => self.board.gen_moves::<true , true , true , true , true , MOV>(mov),
+            (true , true , true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , true , true , MOV>(mov, ep),
+            (true , true , true , true , false, None)     => self.board.gen_moves::<true , true , true , true , false, MOV>(mov),
+            (true , true , true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , true , false, MOV>(mov, ep),
+            (true , true , true , false, true , None)     => self.board.gen_moves::<true , true , true , false, true , MOV>(mov),
+            (true , true , true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , false, true , MOV>(mov, ep),
+            (true , true , true , false, false, None)     => self.board.gen_moves::<true , true , true , false, false, MOV>(mov),
+            (true , true , true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , true , false, false, MOV>(mov, ep),
+            (true , true , false, true , true , None)     => self.board.gen_moves::<true , true , false, true , true , MOV>(mov),
+            (true , true , false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, true , true , MOV>(mov, ep),
+            (true , true , false, true , false, None)     => self.board.gen_moves::<true , true , false, true , false, MOV>(mov),
+            (true , true , false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, true , false, MOV>(mov, ep),
+            (true , true , false, false, true , None)     => self.board.gen_moves::<true , true , false, false, true , MOV>(mov),
+            (true , true , false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, false, true , MOV>(mov, ep),
+            (true , true , false, false, false, None)     => self.board.gen_moves::<true , true , false, false, false, MOV>(mov),
+            (true , true , false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , true , false, false, false, MOV>(mov, ep),
+            (true , false, true , true , true , None)     => self.board.gen_moves::<true , false, true , true , true , MOV>(mov),
+            (true , false, true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , true , true , MOV>(mov, ep),
+            (true , false, true , true , false, None)     => self.board.gen_moves::<true , false, true , true , false, MOV>(mov),
+            (true , false, true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , true , false, MOV>(mov, ep),
+            (true , false, true , false, true , None)     => self.board.gen_moves::<true , false, true , false, true , MOV>(mov),
+            (true , false, true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , false, true , MOV>(mov, ep),
+            (true , false, true , false, false, None)     => self.board.gen_moves::<true , false, true , false, false, MOV>(mov),
+            (true , false, true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, true , false, false, MOV>(mov, ep),
+            (true , false, false, true , true , None)     => self.board.gen_moves::<true , false, false, true , true , MOV>(mov),
+            (true , false, false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, true , true , MOV>(mov, ep),
+            (true , false, false, true , false, None)     => self.board.gen_moves::<true , false, false, true , false, MOV>(mov),
+            (true , false, false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, true , false, MOV>(mov, ep),
+            (true , false, false, false, true , None)     => self.board.gen_moves::<true , false, false, false, true , MOV>(mov),
+            (true , false, false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, false, true , MOV>(mov, ep),
+            (true , false, false, false, false, None)     => self.board.gen_moves::<true , false, false, false, false, MOV>(mov),
+            (true , false, false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<true , false, false, false, false, MOV>(mov, ep),
+            (false, true , true , true , true , None)     => self.board.gen_moves::<false, true , true , true , true , MOV>(mov),
+            (false, true , true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , true , true , MOV>(mov, ep),
+            (false, true , true , true , false, None)     => self.board.gen_moves::<false, true , true , true , false, MOV>(mov),
+            (false, true , true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , true , false, MOV>(mov, ep),
+            (false, true , true , false, true , None)     => self.board.gen_moves::<false, true , true , false, true , MOV>(mov),
+            (false, true , true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , false, true , MOV>(mov, ep),
+            (false, true , true , false, false, None)     => self.board.gen_moves::<false, true , true , false, false, MOV>(mov),
+            (false, true , true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , true , false, false, MOV>(mov, ep),
+            (false, true , false, true , true , None)     => self.board.gen_moves::<false, true , false, true , true , MOV>(mov),
+            (false, true , false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, true , true , MOV>(mov, ep),
+            (false, true , false, true , false, None)     => self.board.gen_moves::<false, true , false, true , false, MOV>(mov),
+            (false, true , false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, true , false, MOV>(mov, ep),
+            (false, true , false, false, true , None)     => self.board.gen_moves::<false, true , false, false, true , MOV>(mov),
+            (false, true , false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, false, true , MOV>(mov, ep),
+            (false, true , false, false, false, None)     => self.board.gen_moves::<false, true , false, false, false, MOV>(mov),
+            (false, true , false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, true , false, false, false, MOV>(mov, ep),
+            (false, false, true , true , true , None)     => self.board.gen_moves::<false, false, true , true , true , MOV>(mov),
+            (false, false, true , true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , true , true , MOV>(mov, ep),
+            (false, false, true , true , false, None)     => self.board.gen_moves::<false, false, true , true , false, MOV>(mov),
+            (false, false, true , true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , true , false, MOV>(mov, ep),
+            (false, false, true , false, true , None)     => self.board.gen_moves::<false, false, true , false, true , MOV>(mov),
+            (false, false, true , false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , false, true , MOV>(mov, ep),
+            (false, false, true , false, false, None)     => self.board.gen_moves::<false, false, true , false, false, MOV>(mov),
+            (false, false, true , false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, true , false, false, MOV>(mov, ep),
+            (false, false, false, true , true , None)     => self.board.gen_moves::<false, false, false, true , true , MOV>(mov),
+            (false, false, false, true , true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, true , true , MOV>(mov, ep),
+            (false, false, false, true , false, None)     => self.board.gen_moves::<false, false, false, true , false, MOV>(mov),
+            (false, false, false, true , false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, true , false, MOV>(mov, ep),
+            (false, false, false, false, true , None)     => self.board.gen_moves::<false, false, false, false, true , MOV>(mov),
+            (false, false, false, false, true , Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, false, true , MOV>(mov, ep),
+            (false, false, false, false, false, None)     => self.board.gen_moves::<false, false, false, false, false, MOV>(mov),
+            (false, false, false, false, false, Some(ep)) => self.board.gen_moves_with_ep::<false, false, false, false, false, MOV>(mov, ep),
+        }
     }
 }
 
@@ -1283,18 +1287,8 @@ impl OnMove for GenericMoveGenerator {
             const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
         let mut b = me.clone();
         b.mov(from, to);
-        let next_state = BitBoardGame::from_parts(b, !TURN, to != 7 && WQ, to != 0 && WK, to != 63 && BQ, to != 56 && BK, None);
-        let next_move = ((to as u16) << 6) + from as u16;
-        let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
-        self.next.push(next_bbgm);
-    }
-
-    fn on_rook_move<const TURN: bool, const WQ: bool,
-            const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8) {
-        let mut b = me.clone();
-        b.mov(from, to);
-        let next_state = BitBoardGame::from_parts(b, !TURN, WQ && from != 7 && to != 7,
-                WK && from != 0 && to != 7, BQ && from != 63 && to != 63, BK && from != 56 && to != 56, None);
+        let mask = (1u64 << from) | (1u64 << to);
+        let next_state = BitBoardGame::from_parts(b, !TURN, mask & (1u64 << 7) != 0 && WQ, mask & (1u64 << 0) != 0 && WK, mask & (1u64 << 63) != 0 && BQ, mask & (1u64 << 56) != 0 && BK, None);
         let next_move = ((to as u16) << 6) + from as u16;
         let next_bbgm = BitBoardGameMove{mov: next_move, bbg: next_state};
         self.next.push(next_bbgm);
@@ -1387,8 +1381,8 @@ impl OnMove for GenericMoveGenerator {
         }
     }
 
-    fn on_promotion<const TURN: bool, const WQ: bool,
-        const WK: bool, const BQ: bool, const BK: bool>(&mut self, me: &BitBoard, from: u8, to: u8, piece: u8) {
+    fn on_promotion<const TURN: bool, const WQ: bool, const WK: bool, const BQ: bool, const BK: bool>
+        (&mut self, me: &BitBoard, from: u8, to: u8, piece: u8) {
         let mut b = me.clone();
         b.clear(from);
         b.set(to, piece);

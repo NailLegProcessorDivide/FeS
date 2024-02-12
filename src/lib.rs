@@ -8,6 +8,7 @@ use crate::game::Move;
 
 pub mod bit_board;
 pub mod board;
+pub mod engine;
 pub mod game;
 pub mod notation;
 pub mod perft_bb_mover;
@@ -77,7 +78,7 @@ mod tests {
         assert_eq!(perft(&mut gs, 2), 2039);
         assert_eq!(perft(&mut gs, 3), 97862);
         assert_eq!(perft(&mut gs, 4), 4085603);
-        // assert_eq!(perft(&mut gs, 5), 193690690);
+        assert_eq!(perft(&mut gs, 5), 193690690);
     }
 
     #[test]
@@ -89,7 +90,7 @@ mod tests {
         assert_eq!(perft(&mut gs, 4), 43238);
         assert_eq!(perft(&mut gs, 5), 674624);
         assert_eq!(perft(&mut gs, 6), 11030083);
-        // assert_eq!(perft(&mut gs, 7), 178633661);
+        assert_eq!(perft(&mut gs, 7), 178633661);
     }
 
     #[test]
@@ -100,7 +101,7 @@ mod tests {
         assert_eq!(perft(&mut gs, 3), 9467);
         assert_eq!(perft(&mut gs, 4), 422333);
         assert_eq!(perft(&mut gs, 5), 15833292);
-        // assert_eq!(perft(&mut gs, 6), 706045033);
+        assert_eq!(perft(&mut gs, 6), 706045033);
     }
 
     #[test]
@@ -111,7 +112,7 @@ mod tests {
         assert_eq!(perft(&mut gs, 3), 9467);
         assert_eq!(perft(&mut gs, 4), 422333);
         assert_eq!(perft(&mut gs, 5), 15833292);
-        // assert_eq!(perft(&mut gs, 6), 706045033);
+        assert_eq!(perft(&mut gs, 6), 706045033);
     }
 
     #[test]
@@ -130,8 +131,7 @@ mod tests {
     fn perft_pos6() {
         let mut gs = BitBoardGame::from_fen(
             "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
-        )
-        .unwrap();
+        ).unwrap();
         assert_eq!(perft(&mut gs, 1), 46);
         assert_eq!(perft(&mut gs, 2), 2079);
         assert_eq!(perft(&mut gs, 3), 89890);
