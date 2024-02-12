@@ -1,8 +1,7 @@
-use std::io::{self, BufRead};
+use std::{io::{self, BufRead}, time::Instant};
 
 use fes::{
-    bit_board::BitBoardGame,
-    game::{ChessGame, Move},
+    bit_board::BitBoardGame, game::{ChessGame, Move}, perft_bb_mover::PerftMove
 };
 
 pub fn perft<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
@@ -43,7 +42,7 @@ fn main() {
 
     loop {
         let input = iterator.next().unwrap().unwrap();
-        let mut parts = input.trim().split(" ");
+        let mut parts = input.trim().split_whitespace();
 
         match parts.next() {
             Some(x) => match x {
@@ -52,18 +51,30 @@ fn main() {
                             gs = BitBoardGame::from_fen(&fen).unwrap();
                         }
                         "move" => {
-                            for ucimov in parts {
+                            'uci: for ucimov in parts {
                                 for mov in gs.moves().iter() {
                                     if ucimov == mov.to_uci() {
                                         gs.do_move(mov);
-                                        break;
+                                        continue 'uci;
                                     }
                                 }
+                                println!("warn: unknown uci move {ucimov}! stopping");
+                                break;
                             }
                         }
                         "perft" => {
+                            let now = Instant::now();
                             let depth = parts.next().unwrap().parse::<usize>().unwrap();
                             perft_div(&mut gs, depth);
+                            println!("{}ms", now.elapsed().as_millis());
+                        }
+                        "perft2" => {
+                            let now = Instant::now();
+                            let depth = parts.next().unwrap().parse::<u64>().unwrap();
+                            let mut cont = PerftMove{ depth_target: depth, depth: 0, counter: 0 };
+                            gs.proc_movs(&mut cont);
+                            println!("total: {}", cont.counter);
+                            println!("{}ms", now.elapsed().as_millis());
                         }
                         "quit" => { break; }
                         _ => { println!("Unrecognised command.") }
