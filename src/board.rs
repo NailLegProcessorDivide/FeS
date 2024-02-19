@@ -384,55 +384,8 @@ impl ChessGame for GameState {
         self.meta = mov.meta.clone();
     }
 
-    fn moves(&mut self) -> Vec<Self::Move> {
-        let moves = self.get_preliminary_moves();
-        let mut moves: Vec<_> = moves
-            .into_iter()
-            .filter(|mov| self.validate_move(mov))
-            .collect();
-
-        let is_check = moves.is_empty() || moves.last().unwrap().from != moves.last().unwrap().to;
-        if !is_check {
-            moves.pop();
-        }
-
-        // castling moves are always the last two to be added to move vector
-        let mut i = moves.len() - 1;
-        for _ in 1..=2 {
-            if i >= moves.len() {
-                break;
-            }
-            let (fx, fy) = unpack_index(moves[i].from);
-            if self.board.pieces[fy][fx].unwrap().piece() == Piece::King {
-                let dist = moves[i].from as i8 - moves[i].to as i8;
-                if dist == 2
-                    && (is_check
-                        || !moves.contains(&FesMoveDet {
-                            from: moves[i].from,
-                            to: moves[i].to + 1,
-                            promo: None,
-                            take: None,
-                            enpas: false,
-                            meta: moves[i].meta.clone(),
-                        }))
-                    || dist == -2
-                        && (is_check
-                            || !moves.contains(&FesMoveDet {
-                                from: moves[i].from,
-                                to: moves[i].to - 1,
-                                promo: None,
-                                take: None,
-                                enpas: false,
-                                meta: moves[i].meta.clone(),
-                            }))
-                {
-                    // if this is a castling move but the king can't move normally along the path then remove this move
-                    moves.remove(i);
-                }
-            }
-            i -= 1;
-        }
-        moves
+    fn moves(&self) -> Vec<Self::Move> {
+        Vec::new()
     }
 
     fn gen_alg(&mut self, _mov: &Self::Move) -> AlgebraicMove {

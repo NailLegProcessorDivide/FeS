@@ -39,7 +39,7 @@ pub struct BitBoard {
 
 #[derive(Clone)]
 pub struct BitBoardGameMove {
-    mov: u16,
+    pub mov: u16,
     bbg: BitBoardGame
 }
 
@@ -1052,7 +1052,7 @@ impl ChessGame for BitBoardGame {
     type UnMove = BitBoardGame;
 
     fn new() -> Self {
-        todo!()
+        Self::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
     }
 
     fn from_fen(fen: &str) -> Option<Self> {
@@ -1121,7 +1121,7 @@ impl ChessGame for BitBoardGame {
         todo!()
     }
 
-    fn moves(&mut self) -> Vec<Self::Move> {
+    fn moves(&self) -> Vec<Self::Move> {
         let mut genny = GenericMoveGenerator { next: Vec::new()};
         match (self.turn, self.white_qs, self.white_ks, self.black_qs, self.black_ks, self.ep) {
             (true , true , true , true , true , None)     => self.board.gen_moves::<true , true , true , true , true , GenericMoveGenerator>(&mut genny),
