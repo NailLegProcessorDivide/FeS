@@ -104,6 +104,7 @@ impl Move for FesMoveDet {
     }
 }
 
+#[derive(Clone)]
 pub struct Board {
     pieces: [[Option<piece::ColouredPiece>; 8]; 8],
 }
@@ -153,6 +154,7 @@ impl Board {
     }
 }
 
+#[derive(Clone)]
 pub struct GameState {
     turn: piece::PlayerColour,
     board: Board,
@@ -384,11 +386,12 @@ impl ChessGame for GameState {
         self.meta = mov.meta.clone();
     }
 
-    fn moves(&mut self) -> Vec<Self::Move> {
+    fn moves(&self) -> Vec<Self::Move> {
         let moves = self.get_preliminary_moves();
+        let mut o_self = self.clone();
         let mut moves: Vec<_> = moves
             .into_iter()
-            .filter(|mov| self.validate_move(mov))
+            .filter(|mov| o_self.validate_move(mov))
             .collect();
 
         let is_check = moves.is_empty() || moves.last().unwrap().from != moves.last().unwrap().to;
