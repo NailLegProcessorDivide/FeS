@@ -10,9 +10,6 @@ unstable_features = true
 [profile.release]
 debug = true
 
-[target.nightly-x86_64-unknown-linux-gnu]
-rustflags = ["-Zlinker-features=-lld"]
-
 [dependencies]
 streaming-iterator = "0.1.9"
 regex = "1.10.2"

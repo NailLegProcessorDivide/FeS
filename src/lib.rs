@@ -144,8 +144,7 @@ mod tests {
     fn perft_pos6() {
         let mut gs = BitBoardGame::from_fen(
             "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
-        )
-        .unwrap();
+        ).unwrap();
         assert_eq!(perft(&mut gs, 1), 46);
         assert_eq!(perft(&mut gs, 2), 2079);
         assert_eq!(perft(&mut gs, 3), 89890);

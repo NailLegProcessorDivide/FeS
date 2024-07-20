@@ -4,6 +4,10 @@ pub struct PerftMove {
     pub depth_target: u64,
     pub depth: u64,
     pub counter: u64,
+pub struct PerftMove {
+    pub depth_target: u64,
+    pub depth: u64,
+    pub counter: u64,
 }
 
 impl OnMove for PerftMove {
@@ -19,6 +23,7 @@ impl OnMove for PerftMove {
             self.counter += 1;
         } else {
             let mut b = me.clone();
+            let mask = (1u64 << from) | (1u64 << to);
             b.mov(from, to);
             match (
                 from != 7 && to != 7 && WQ,
