@@ -19,13 +19,12 @@ impl OnMove for PerftMove {
             self.counter += 1;
         } else {
             let mut b = me.clone();
-            let mask = (1u64 << from) | (1u64 << to);
             b.mov(from, to);
             match (
-                mask & (1u64 << 7) != 0 && WQ,
-                mask & (1u64 << 0) != 0 && WK,
-                mask & (1u64 << 63) != 0 && BQ,
-                mask & (1u64 << 56) != 0 && BK,
+                from != 7 && to != 7 && WQ,
+                from != 0 && to != 0 && WK,
+                from != 63 && to != 63 && BQ,
+                from != 56 && to != 56 && BK,
             ) {
                 (true, true, true, true) => {
                     b.gen_moves::<true, true, true, true, Self>(!turn, self)
