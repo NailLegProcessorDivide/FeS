@@ -4,10 +4,6 @@ pub struct PerftMove {
     pub depth_target: u64,
     pub depth: u64,
     pub counter: u64,
-pub struct PerftMove {
-    pub depth_target: u64,
-    pub depth: u64,
-    pub counter: u64,
 }
 
 impl OnMove for PerftMove {
