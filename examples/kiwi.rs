@@ -1,4 +1,4 @@
-use fes::{bit_board::BitBoardGame, game::ChessGame, perft};
+use fes::{bit_board::BitBoardGame, game::ChessGame, perft, perft_div};
 
 fn main() {
     let mut gs =
@@ -9,4 +9,5 @@ fn main() {
     assert_eq!(perft(&mut gs, 3), 97862);
     assert_eq!(perft(&mut gs, 4), 4085603);
     assert_eq!(perft(&mut gs, 5), 193690690);
+    assert_eq!(perft(&mut gs, 6), 8031647685);
 }

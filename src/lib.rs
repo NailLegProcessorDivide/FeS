@@ -1,6 +1,6 @@
-#![feature(generic_const_exprs)]
-#![allow(incomplete_features)]
-#![feature(adt_const_params)]
+// #![feature(generic_const_exprs)]
+// #![allow(incomplete_features)]
+// #![feature(adt_const_params)]
 
 use game::ChessGame;
 
@@ -51,7 +51,9 @@ mod tests {
     // game boards from https://www.chessprogramming.org/Perft_Results
     #[test]
     fn perft_base() {
-        let mut gs = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        let mut gs =
+            BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                .unwrap();
         assert_eq!(perft(&mut gs, 1), 20);
         assert_eq!(perft(&mut gs, 2), 400);
         assert_eq!(perft(&mut gs, 3), 8902);
@@ -62,7 +64,9 @@ mod tests {
 
     #[test]
     fn perft_base2() {
-        let mut gs = BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        let mut gs =
+            BitBoardGame::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                .unwrap();
         assert_eq!(perft(&mut gs, 1), 20);
         assert_eq!(perft(&mut gs, 2), 400);
         assert_eq!(perft(&mut gs, 3), 8902);
@@ -73,7 +77,10 @@ mod tests {
 
     #[test]
     fn perft_kiwipete() {
-        let mut gs = BitBoardGame::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -").unwrap();
+        let mut gs = BitBoardGame::from_fen(
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+        )
+        .unwrap();
         assert_eq!(perft(&mut gs, 1), 48);
         assert_eq!(perft(&mut gs, 2), 2039);
         assert_eq!(perft(&mut gs, 3), 97862);
@@ -95,7 +102,10 @@ mod tests {
 
     #[test]
     fn perft_pos4() {
-        let mut gs = BitBoardGame::from_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1").unwrap();
+        let mut gs = BitBoardGame::from_fen(
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        )
+        .unwrap();
         assert_eq!(perft(&mut gs, 1), 6);
         assert_eq!(perft(&mut gs, 2), 264);
         assert_eq!(perft(&mut gs, 3), 9467);
@@ -106,7 +116,10 @@ mod tests {
 
     #[test]
     fn perft_pos4b() {
-        let mut gs = BitBoardGame::from_fen("r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1").unwrap();
+        let mut gs = BitBoardGame::from_fen(
+            "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1",
+        )
+        .unwrap();
         assert_eq!(perft(&mut gs, 1), 6);
         assert_eq!(perft(&mut gs, 2), 264);
         assert_eq!(perft(&mut gs, 3), 9467);
