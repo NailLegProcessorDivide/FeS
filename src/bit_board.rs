@@ -649,6 +649,7 @@ impl BitBoard {
         &self,
         turn: bool,
         on_move: &mut Mov,
+        sq: Option<u8>,
     ) {
         let check_mask = self.check_mask(turn);
         let hor_pins = self.hor_pin_mask(turn);
@@ -658,273 +659,10 @@ impl BitBoard {
         let diagonal_pins = self.diagonal_pin_mask(turn);
         let empty = !self.piece_mask();
         let empty_free = empty & check_mask;
-        let enemy = self.col_piece_mask(!turn) & check_mask;
-
-        let base_pawns = self.col_pawn_mask(turn);
-        let lr_pawns = base_pawns & !rl_pins & !ortho_pins;
-        let up_pawns = base_pawns & !diagonal_pins & !hor_pins;
-        let rl_pawns = base_pawns & !lr_pins & !ortho_pins;
-        if turn {
-            let mut up1 = (empty_free >> 8) & up_pawns;
-            let mut up2 = (empty_free >> 16) & (empty >> 8) & up_pawns & (0xff << 8);
-            let mut lr = (enemy >> 7) & lr_pawns & !Self::RIGHT_SIDE;
-            let mut rl = (enemy >> 9) & rl_pawns & !Self::LEFT_SIDE;
-            while up1 != 0 {
-                let from_idx = up1.trailing_zeros() as u8;
-                if from_idx >> 3 == 6 {
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 8,
-                        0b1101,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 8,
-                        0b1001,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 8,
-                        0b1010,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 8,
-                        0b1011,
-                    );
-                } else {
-                    on_move.on_move::<WQ, WK, BQ, BK>(turn, self, from_idx, from_idx + 8);
-                }
-                up1 &= up1 - 1;
-            }
-            while up2 != 0 {
-                let from_idx = up2.trailing_zeros() as u8;
-                on_move.on_pawn_push2::<WQ, WK, BQ, BK>(turn, self, from_idx);
-                up2 &= up2 - 1;
-            }
-            while lr != 0 {
-                let from_idx = lr.trailing_zeros() as u8;
-                if from_idx >> 3 == 6 {
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 7,
-                        0b1101,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 7,
-                        0b1001,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 7,
-                        0b1010,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 7,
-                        0b1011,
-                    );
-                } else {
-                    on_move.on_move::<WQ, WK, BQ, BK>(turn, self, from_idx, from_idx + 7);
-                }
-                lr &= lr - 1;
-            }
-            while rl != 0 {
-                let from_idx = rl.trailing_zeros() as u8;
-                if from_idx >> 3 == 6 {
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 9,
-                        0b1101,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 9,
-                        0b1001,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 9,
-                        0b1010,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx + 9,
-                        0b1011,
-                    );
-                } else {
-                    on_move.on_move::<WQ, WK, BQ, BK>(turn, self, from_idx, from_idx + 9);
-                }
-                rl &= rl - 1;
-            }
-        } else {
-            let mut up1 = (empty_free << 8) & up_pawns;
-            let mut up2 = (empty_free << 16) & (empty << 8) & up_pawns & (0xff << (8 * 6));
-            let mut lr = (enemy << 7) & lr_pawns & !Self::LEFT_SIDE;
-            let mut rl = (enemy << 9) & rl_pawns & !Self::RIGHT_SIDE;
-            while up1 != 0 {
-                let from_idx = up1.trailing_zeros() as u8;
-                if from_idx >> 3 == 1 {
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 8,
-                        0b0101,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 8,
-                        0b0001,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 8,
-                        0b0010,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 8,
-                        0b0011,
-                    );
-                } else {
-                    on_move.on_move::<WQ, WK, BQ, BK>(turn, self, from_idx, from_idx - 8);
-                }
-                up1 &= up1 - 1;
-            }
-            while up2 != 0 {
-                let from_idx = up2.trailing_zeros() as u8;
-                on_move.on_pawn_push2::<WQ, WK, BQ, BK>(turn, self, from_idx);
-                up2 &= up2 - 1;
-            }
-            while lr != 0 {
-                let from_idx = lr.trailing_zeros() as u8;
-                if from_idx >> 3 == 1 {
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 7,
-                        0b0101,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 7,
-                        0b0001,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 7,
-                        0b0010,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 7,
-                        0b0011,
-                    );
-                } else {
-                    on_move.on_move::<WQ, WK, BQ, BK>(turn, self, from_idx, from_idx - 7);
-                }
-                lr &= lr - 1;
-            }
-            while rl != 0 {
-                let from_idx = rl.trailing_zeros() as u8;
-                if from_idx >> 3 == 1 {
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 9,
-                        0b0101,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 9,
-                        0b0001,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 9,
-                        0b0010,
-                    );
-                    on_move.on_promotion::<WQ, WK, BQ, BK>(
-                        turn,
-                        self,
-                        from_idx,
-                        from_idx - 9,
-                        0b0011,
-                    );
-                } else {
-                    on_move.on_move::<WQ, WK, BQ, BK>(turn, self, from_idx, from_idx - 9);
-                }
-                rl &= rl - 1;
-            }
-        }
-    }
-
-    #[inline(always)]
-    pub fn gen_pawn_moves_with_ep<
-        const WQ: bool,
-        const WK: bool,
-        const BQ: bool,
-        const BK: bool,
-        Mov: OnMove,
-    >(
-        &self,
-        turn: bool,
-        on_move: &mut Mov,
-        sq: u8,
-    ) {
-        let check_mask = self.check_mask(turn);
-        let hor_pins = self.hor_pin_mask(turn);
-        let ortho_pins = self.ortho_pin_mask(turn);
-        let lr_pins = self.lr_pin_mask(turn);
-        let rl_pins = self.rl_pin_mask(turn);
-        let diagonal_pins = self.diagonal_pin_mask(turn);
-        let empty = !self.piece_mask();
-        let empty_free = empty & check_mask;
-        let ep = 1 << sq;
+        let ep = match sq {
+            Some(x) => 1 << x,
+            None => 0,
+        };
         let enemy = self.col_piece_mask(!turn) & check_mask | ep;
 
         let base_pawns = self.col_pawn_mask(turn);
@@ -1381,28 +1119,9 @@ impl BitBoard {
         &self,
         turn: bool,
         on_move: &mut Mov,
+        ep: Option<u8>,
     ) {
-        self.gen_pawn_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
-        self.gen_knight_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
-        self.gen_diagonal_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
-        self.gen_ortho_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
-        self.gen_king_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
-    }
-
-    #[inline(always)]
-    pub fn gen_moves_with_ep<
-        const WQ: bool,
-        const WK: bool,
-        const BQ: bool,
-        const BK: bool,
-        Mov: OnMove,
-    >(
-        &self,
-        turn: bool,
-        on_move: &mut Mov,
-        ep: u8,
-    ) {
-        self.gen_pawn_moves_with_ep::<WQ, WK, BQ, BK, Mov>(turn, on_move, ep);
+        self.gen_pawn_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move, ep);
         self.gen_knight_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
         self.gen_diagonal_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
         self.gen_ortho_moves::<WQ, WK, BQ, BK, Mov>(turn, on_move);
@@ -1532,109 +1251,55 @@ impl ChessGame for BitBoardGame {
 impl BitBoardGame {
     pub fn proc_movs<MOV: OnMove>(&self, mov: &mut MOV) {
         let turn = self.turn;
-        match (
-            self.white_qs,
-            self.white_ks,
-            self.black_qs,
-            self.black_ks,
-            self.ep,
-        ) {
-            (true, true, true, true, None) => self
+        match (self.white_qs, self.white_ks, self.black_qs, self.black_ks) {
+            (true, true, true, true) => self
                 .board
-                .gen_moves::<true, true, true, true, MOV>(turn, mov),
-            (true, true, true, true, Some(ep)) => self
+                .gen_moves::<true, true, true, true, MOV>(turn, mov, self.ep),
+            (true, true, true, false) => self
                 .board
-                .gen_moves_with_ep::<true, true, true, true, MOV>(turn, mov, ep),
-            (true, true, true, false, None) => self
+                .gen_moves::<true, true, true, false, MOV>(turn, mov, self.ep),
+            (true, true, false, true) => self
                 .board
-                .gen_moves::<true, true, true, false, MOV>(turn, mov),
-            (true, true, true, false, Some(ep)) => self
+                .gen_moves::<true, true, false, true, MOV>(turn, mov, self.ep),
+            (true, true, false, false) => self
                 .board
-                .gen_moves_with_ep::<true, true, true, false, MOV>(turn, mov, ep),
-            (true, true, false, true, None) => self
+                .gen_moves::<true, true, false, false, MOV>(turn, mov, self.ep),
+            (true, false, true, true) => self
                 .board
-                .gen_moves::<true, true, false, true, MOV>(turn, mov),
-            (true, true, false, true, Some(ep)) => self
+                .gen_moves::<true, false, true, true, MOV>(turn, mov, self.ep),
+            (true, false, true, false) => self
                 .board
-                .gen_moves_with_ep::<true, true, false, true, MOV>(turn, mov, ep),
-            (true, true, false, false, None) => self
+                .gen_moves::<true, false, true, false, MOV>(turn, mov, self.ep),
+            (true, false, false, true) => self
                 .board
-                .gen_moves::<true, true, false, false, MOV>(turn, mov),
-            (true, true, false, false, Some(ep)) => self
+                .gen_moves::<true, false, false, true, MOV>(turn, mov, self.ep),
+            (true, false, false, false) => self
                 .board
-                .gen_moves_with_ep::<true, true, false, false, MOV>(turn, mov, ep),
-            (true, false, true, true, None) => self
+                .gen_moves::<true, false, false, false, MOV>(turn, mov, self.ep),
+            (false, true, true, true) => self
                 .board
-                .gen_moves::<true, false, true, true, MOV>(turn, mov),
-            (true, false, true, true, Some(ep)) => self
+                .gen_moves::<false, true, true, true, MOV>(turn, mov, self.ep),
+            (false, true, true, false) => self
                 .board
-                .gen_moves_with_ep::<true, false, true, true, MOV>(turn, mov, ep),
-            (true, false, true, false, None) => self
+                .gen_moves::<false, true, true, false, MOV>(turn, mov, self.ep),
+            (false, true, false, true) => self
                 .board
-                .gen_moves::<true, false, true, false, MOV>(turn, mov),
-            (true, false, true, false, Some(ep)) => self
+                .gen_moves::<false, true, false, true, MOV>(turn, mov, self.ep),
+            (false, true, false, false) => self
                 .board
-                .gen_moves_with_ep::<true, false, true, false, MOV>(turn, mov, ep),
-            (true, false, false, true, None) => self
+                .gen_moves::<false, true, false, false, MOV>(turn, mov, self.ep),
+            (false, false, true, true) => self
                 .board
-                .gen_moves::<true, false, false, true, MOV>(turn, mov),
-            (true, false, false, true, Some(ep)) => self
+                .gen_moves::<false, false, true, true, MOV>(turn, mov, self.ep),
+            (false, false, true, false) => self
                 .board
-                .gen_moves_with_ep::<true, false, false, true, MOV>(turn, mov, ep),
-            (true, false, false, false, None) => self
+                .gen_moves::<false, false, true, false, MOV>(turn, mov, self.ep),
+            (false, false, false, true) => self
                 .board
-                .gen_moves::<true, false, false, false, MOV>(turn, mov),
-            (true, false, false, false, Some(ep)) => self
+                .gen_moves::<false, false, false, true, MOV>(turn, mov, self.ep),
+            (false, false, false, false) => self
                 .board
-                .gen_moves_with_ep::<true, false, false, false, MOV>(turn, mov, ep),
-            (false, true, true, true, None) => self
-                .board
-                .gen_moves::<false, true, true, true, MOV>(turn, mov),
-            (false, true, true, true, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, true, true, true, MOV>(turn, mov, ep),
-            (false, true, true, false, None) => self
-                .board
-                .gen_moves::<false, true, true, false, MOV>(turn, mov),
-            (false, true, true, false, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, true, true, false, MOV>(turn, mov, ep),
-            (false, true, false, true, None) => self
-                .board
-                .gen_moves::<false, true, false, true, MOV>(turn, mov),
-            (false, true, false, true, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, true, false, true, MOV>(turn, mov, ep),
-            (false, true, false, false, None) => self
-                .board
-                .gen_moves::<false, true, false, false, MOV>(turn, mov),
-            (false, true, false, false, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, true, false, false, MOV>(turn, mov, ep),
-            (false, false, true, true, None) => self
-                .board
-                .gen_moves::<false, false, true, true, MOV>(turn, mov),
-            (false, false, true, true, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, false, true, true, MOV>(turn, mov, ep),
-            (false, false, true, false, None) => self
-                .board
-                .gen_moves::<false, false, true, false, MOV>(turn, mov),
-            (false, false, true, false, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, false, true, false, MOV>(turn, mov, ep),
-            (false, false, false, true, None) => self
-                .board
-                .gen_moves::<false, false, false, true, MOV>(turn, mov),
-            (false, false, false, true, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, false, false, true, MOV>(turn, mov, ep),
-            (false, false, false, false, None) => self
-                .board
-                .gen_moves::<false, false, false, false, MOV>(turn, mov),
-            (false, false, false, false, Some(ep)) => self
-                .board
-                .gen_moves_with_ep::<false, false, false, false, MOV>(turn, mov, ep),
+                .gen_moves::<false, false, false, false, MOV>(turn, mov, self.ep),
         }
     }
 }

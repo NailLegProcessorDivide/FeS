@@ -19,7 +19,6 @@ impl OnMove for PerftMove {
             self.counter += 1;
         } else {
             let mut b = me.clone();
-            let mask = (1u64 << from) | (1u64 << to);
             b.mov(from, to);
             match (
                 from != 7 && to != 7 && WQ,
@@ -28,52 +27,52 @@ impl OnMove for PerftMove {
                 from != 56 && to != 56 && BK,
             ) {
                 (true, true, true, true) => {
-                    b.gen_moves::<true, true, true, true, Self>(!turn, self)
+                    b.gen_moves::<true, true, true, true, Self>(!turn, self, None)
                 }
                 (true, true, true, false) => {
-                    b.gen_moves::<true, true, true, false, Self>(!turn, self)
+                    b.gen_moves::<true, true, true, false, Self>(!turn, self, None)
                 }
                 (true, true, false, true) => {
-                    b.gen_moves::<true, true, false, true, Self>(!turn, self)
+                    b.gen_moves::<true, true, false, true, Self>(!turn, self, None)
                 }
                 (true, true, false, false) => {
-                    b.gen_moves::<true, true, false, false, Self>(!turn, self)
+                    b.gen_moves::<true, true, false, false, Self>(!turn, self, None)
                 }
                 (true, false, true, true) => {
-                    b.gen_moves::<true, false, true, true, Self>(!turn, self)
+                    b.gen_moves::<true, false, true, true, Self>(!turn, self, None)
                 }
                 (true, false, true, false) => {
-                    b.gen_moves::<true, false, true, false, Self>(!turn, self)
+                    b.gen_moves::<true, false, true, false, Self>(!turn, self, None)
                 }
                 (true, false, false, true) => {
-                    b.gen_moves::<true, false, false, true, Self>(!turn, self)
+                    b.gen_moves::<true, false, false, true, Self>(!turn, self, None)
                 }
                 (true, false, false, false) => {
-                    b.gen_moves::<true, false, false, false, Self>(!turn, self)
+                    b.gen_moves::<true, false, false, false, Self>(!turn, self, None)
                 }
                 (false, true, true, true) => {
-                    b.gen_moves::<false, true, true, true, Self>(!turn, self)
+                    b.gen_moves::<false, true, true, true, Self>(!turn, self, None)
                 }
                 (false, true, true, false) => {
-                    b.gen_moves::<false, true, true, false, Self>(!turn, self)
+                    b.gen_moves::<false, true, true, false, Self>(!turn, self, None)
                 }
                 (false, true, false, true) => {
-                    b.gen_moves::<false, true, false, true, Self>(!turn, self)
+                    b.gen_moves::<false, true, false, true, Self>(!turn, self, None)
                 }
                 (false, true, false, false) => {
-                    b.gen_moves::<false, true, false, false, Self>(!turn, self)
+                    b.gen_moves::<false, true, false, false, Self>(!turn, self, None)
                 }
                 (false, false, true, true) => {
-                    b.gen_moves::<false, false, true, true, Self>(!turn, self)
+                    b.gen_moves::<false, false, true, true, Self>(!turn, self, None)
                 }
                 (false, false, true, false) => {
-                    b.gen_moves::<false, false, true, false, Self>(!turn, self)
+                    b.gen_moves::<false, false, true, false, Self>(!turn, self, None)
                 }
                 (false, false, false, true) => {
-                    b.gen_moves::<false, false, false, true, Self>(!turn, self)
+                    b.gen_moves::<false, false, false, true, Self>(!turn, self, None)
                 }
                 (false, false, false, false) => {
-                    b.gen_moves::<false, false, false, false, Self>(!turn, self)
+                    b.gen_moves::<false, false, false, false, Self>(!turn, self, None)
                 }
             }
         }
@@ -93,7 +92,7 @@ impl OnMove for PerftMove {
         } else {
             let mut b = me.clone();
             b.mov(from, to);
-            b.gen_moves::<false, false, BQ, BK, Self>(!turn, self);
+            b.gen_moves::<false, false, BQ, BK, Self>(!turn, self, None);
         }
         self.depth -= 1;
     }
@@ -116,7 +115,7 @@ impl OnMove for PerftMove {
             } else {
                 b.clear(to + 8);
             }
-            b.gen_moves::<WQ, WK, BQ, BK, Self>(!turn, self);
+            b.gen_moves::<WQ, WK, BQ, BK, Self>(!turn, self, None);
         }
         self.depth -= 1;
     }
@@ -134,11 +133,11 @@ impl OnMove for PerftMove {
             if turn {
                 b.mov(7, 4);
                 b.mov(3, 5);
-                b.gen_moves::<false, false, BQ, BK, Self>(!turn, self);
+                b.gen_moves::<false, false, BQ, BK, Self>(!turn, self, None);
             } else {
                 b.mov(63, 60);
                 b.mov(59, 61);
-                b.gen_moves::<WQ, WK, false, false, Self>(!turn, self);
+                b.gen_moves::<WQ, WK, false, false, Self>(!turn, self, None);
             }
         }
         self.depth -= 1;
@@ -157,11 +156,11 @@ impl OnMove for PerftMove {
             if turn {
                 b.mov(0, 2);
                 b.mov(3, 1);
-                b.gen_moves::<false, false, BQ, BK, Self>(!turn, self);
+                b.gen_moves::<false, false, BQ, BK, Self>(!turn, self, None);
             } else {
                 b.mov(56, 58);
                 b.mov(59, 57);
-                b.gen_moves::<WQ, WK, false, false, Self>(!turn, self);
+                b.gen_moves::<WQ, WK, false, false, Self>(!turn, self, None);
             }
         }
         self.depth -= 1;
@@ -180,10 +179,10 @@ impl OnMove for PerftMove {
             let mut b = me.clone();
             if turn {
                 b.mov(from, from + 16);
-                b.gen_moves_with_ep::<WQ, WK, BQ, BK, Self>(!turn, self, from + 8);
+                b.gen_moves::<WQ, WK, BQ, BK, Self>(!turn, self, Some(from + 8));
             } else {
                 b.mov(from, from - 16);
-                b.gen_moves_with_ep::<WQ, WK, BQ, BK, Self>(!turn, self, from - 8);
+                b.gen_moves::<WQ, WK, BQ, BK, Self>(!turn, self, Some(from - 8));
             }
         }
         self.depth -= 1;
