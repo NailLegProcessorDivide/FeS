@@ -42,7 +42,7 @@ pub struct BitBoard {
 
 #[derive(Clone)]
 pub struct BitBoardGameMove {
-    mov: u16,
+    pub mov: u16,
     bbg: BitBoardGame,
 }
 

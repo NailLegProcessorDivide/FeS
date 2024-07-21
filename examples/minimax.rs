@@ -16,12 +16,9 @@ pub struct TTVal {
     pub is_valid: bool
 }
 
-
-
 fn main() {
     let mut node = BitBoardGame::from_fen("kbK5/pp6/1P6/8/8/8/8/R7 w - - 0 1").unwrap();
-
-    println!("{}", best_move(&mut node, 3, 1).to_uci());
+    println!("{}", best_move(&mut node, 4, 1).to_uci());
 }
 
 fn best_move(node: &mut BitBoardGame, depth: u8, turn: i32) -> u16 {
@@ -37,27 +34,19 @@ fn best_move(node: &mut BitBoardGame, depth: u8, turn: i32) -> u16 {
             best_move = mov.mov;
         }
     }
-
+     
     best_move
 }
 
 fn negamax(node: &mut BitBoardGame, depth: u8, a: i32, b: i32, turn: i32) -> i32 {
-    if depth == 0 /* OR terminal node */ {
-        println!("{}", eval(node, turn == 1));
-
-        return turn * eval(node, turn == 1);
+    if depth == 0 {
+        return turn * eval(node);
     }
 
     let moves = order_moves(&node.moves());
 
-    if turn == 1 {
-        if moves.is_empty() && node.board.check_mask::<true>() != 0 {
-            return -i32::MAX;
-        }
-    } else {
-        if moves.is_empty() && node.board.check_mask::<false>() != 0 {
-            return i32::MAX;
-        }
+    if moves.is_empty() && node.board.check_mask(turn == 1) != 0 {
+        return turn * i32::MAX;
     }
 
     let mut value = -i32::MAX;
@@ -82,20 +71,17 @@ fn order_moves(moves: &Vec<BitBoardGameMove>) -> Vec<BitBoardGameMove> {
     new_moves
 }
 
-fn eval (node: &BitBoardGame, turn: bool) -> i32 {
-    if turn {
-        (node.board.col_pawn_mask::<true>().count_ones() +
-            node.board.col_knight_mask::<true>().count_ones() * 3 +
-            node.board.col_diagonal_mask::<true>().count_ones() * 3 +
-            node.board.col_ortho_mask::<true>().count_ones() * 5 +
-            node.board.col_king_mask::<true>().count_ones() * 50) as i32
-    } else {
-        -((node.board.col_pawn_mask::<false>().count_ones() +
-        node.board.col_knight_mask::<false>().count_ones() * 3 +
-        node.board.col_diagonal_mask::<false>().count_ones() * 3 +
-        node.board.col_ortho_mask::<false>().count_ones() * 5 +
-        node.board.col_king_mask::<false>().count_ones() * 50) as i32)
-    }
+fn eval (node: &BitBoardGame) -> i32 {
+    (node.board.col_pawn_mask(true).count_ones() +
+     node.board.col_knight_mask(true).count_ones() * 3 +
+     node.board.col_diagonal_mask(true).count_ones() * 3 +
+     node.board.col_ortho_mask(true).count_ones() * 5 +
+     node.board.col_king_mask(true).count_ones() * 50) as i32 -
+    (node.board.col_pawn_mask(false).count_ones() +
+     node.board.col_knight_mask(false).count_ones() * 3 +
+     node.board.col_diagonal_mask(false).count_ones() * 3 +
+     node.board.col_ortho_mask(false).count_ones() * 5 +
+     node.board.col_king_mask(false).count_ones() * 50) as i32
 }
 
 // function init_zobrist():
