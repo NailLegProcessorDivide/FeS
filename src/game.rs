@@ -6,6 +6,16 @@ pub trait Move: Sized + Display {
     fn to_uci(&self) -> String;
 }
 
+impl Move for u16 {
+    fn to_uci(&self) -> String {
+        let ox = ('h' as u8 - (self & 7) as u8) as char;
+        let oy = ('1' as u8 + ((self >> 3) & 7) as u8) as char;
+        let nx = ('h' as u8 - ((self >> 6) & 7) as u8) as char;
+        let ny = ('1' as u8 + ((self >> 9) & 7) as u8) as char;
+        format!("{ox}{oy}{nx}{ny}")
+    }
+}
+
 pub trait ChessGame: Sized {
     type Move: Move;
     type UnMove;

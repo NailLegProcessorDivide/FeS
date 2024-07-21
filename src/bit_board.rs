@@ -42,7 +42,7 @@ pub struct BitBoard {
 
 #[derive(Clone)]
 pub struct BitBoardGameMove {
-    mov: u16,
+    pub mov: u16,
     bbg: BitBoardGame,
 }
 
@@ -1146,7 +1146,7 @@ impl ChessGame for BitBoardGame {
     type UnMove = BitBoardGame;
 
     fn new() -> Self {
-        todo!()
+        Self::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap()
     }
 
     fn from_fen(fen: &str) -> Option<Self> {
