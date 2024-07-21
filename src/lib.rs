@@ -47,7 +47,7 @@ pub fn perft_div<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{bit_board::BitBoardGame, board::GameState, game::ChessGame, perft, perft_div};
+    use crate::{bit_board::BitBoardGame, game::ChessGame, perft, perft_div};
     // game boards from https://www.chessprogramming.org/Perft_Results
     #[test]
     fn perft_base() {
