@@ -1,4 +1,4 @@
-use fes::{bit_board::BitBoardGame, game::ChessGame, perft, perft_div};
+use fes::{bit_board::BitBoardGame, game::ChessGame, perft};
 
 fn main() {
     let mut gs =
