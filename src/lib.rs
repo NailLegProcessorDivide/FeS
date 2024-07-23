@@ -2,6 +2,8 @@
 // #![allow(incomplete_features)]
 // #![feature(adt_const_params)]
 
+use rayon::prelude::*;
+
 use game::ChessGame;
 
 use crate::game::Move;
@@ -28,6 +30,27 @@ pub fn perft<Game: ChessGame>(gs: &mut Game, limit: usize) -> usize {
             total += perft(gs, limit - 1);
             gs.unmove(&unmov);
         }
+        total
+    }
+}
+
+pub fn perft_par<Game: ChessGame + Sync>(gs: &mut Game, limit: usize) -> usize {
+    if limit == 0 {
+        1
+    } else if limit == 1 {
+        gs.moves().len()
+    } else {
+        let moves = gs.moves();
+        let total = moves
+            .par_iter()
+            .map(|mov| {
+                let mut gs = gs.clone();
+                let unmov = gs.do_move(&mov);
+                let count = perft(&mut gs, limit - 1);
+                gs.unmove(&unmov);
+                count
+            })
+            .sum();
         total
     }
 }
@@ -144,7 +167,8 @@ mod tests {
     fn perft_pos6() {
         let mut gs = BitBoardGame::from_fen(
             "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(perft(&mut gs, 1), 46);
         assert_eq!(perft(&mut gs, 2), 2079);
         assert_eq!(perft(&mut gs, 3), 89890);

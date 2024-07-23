@@ -1,6 +1,6 @@
-use std::io::{self, BufRead};
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::io::{self, BufRead};
 
 pub struct GoArgs<'a> {
     pub moves: Option<Vec<&'a str>>,
@@ -21,7 +21,7 @@ pub trait Engine {
     fn new() -> Self;
     fn set_from_fen(&mut self, fen: &str);
     fn play_move(&mut self, mov: &str);
-    fn select_move(&self, ) -> u16;
+    fn select_move(&self) -> u16;
     fn get_name(&self) -> String;
     fn get_author(&self) -> String;
     fn set_debug(&self, b: bool);
@@ -59,40 +59,60 @@ pub fn do_uci<Eng: Engine>(eng: &mut Eng) {
                 println!("id name {}", eng.get_name());
                 println!("id author {}", eng.get_author());
                 println!("uciok");
-            },
-            Some(("debug", "on")) => { eng.set_debug(true); },
-            Some(("debug", "off")) => { eng.set_debug(false); },
-            Some(("isready", _)) => { println!("readyok"); },
-            Some(("setoption", rest)) => { eng.log(&format!("tried to set option {rest}")); },
-            Some(("register", rest)) => { todo!("tried to register {rest}"); },
-            Some(("ucinewgame", rest)) => { eng.log(&format!("starting new game: {rest}")); },
+            }
+            Some(("debug", "on")) => {
+                eng.set_debug(true);
+            }
+            Some(("debug", "off")) => {
+                eng.set_debug(false);
+            }
+            Some(("isready", _)) => {
+                println!("readyok");
+            }
+            Some(("setoption", rest)) => {
+                eng.log(&format!("tried to set option {rest}"));
+            }
+            Some(("register", rest)) => {
+                todo!("tried to register {rest}");
+            }
+            Some(("ucinewgame", rest)) => {
+                eng.log(&format!("starting new game: {rest}"));
+            }
             Some(("position", rest)) => {
                 let sp = match START_POS.captures(rest) {
                     Some(m) => m.get(2),
-                    None => {
-                        match FEN_POS.captures(rest) {
-                            Some(m) => m.get(13),
-                            None => {eng.log(&format!("sp no match {rest}")); continue;},
+                    None => match FEN_POS.captures(rest) {
+                        Some(m) => m.get(13),
+                        None => {
+                            eng.log(&format!("sp no match {rest}"));
+                            continue;
                         }
-                    }
+                    },
                 };
                 match sp {
                     Some(moves) => {
-                        moves.as_str().trim().split_whitespace().for_each(|m| eng.play_move(m));
+                        moves
+                            .as_str()
+                            .trim()
+                            .split_whitespace()
+                            .for_each(|m| eng.play_move(m));
                     }
-                    None => {eng.log("no moves")},
+                    None => eng.log("no moves"),
                 }
-            },
+            }
             Some(("go", rest)) => {
-                let moves = match SEARCH_MOVES.captures(rest) {
-                    Some(m) => Some(m.get(1).unwrap().as_str().trim().split_whitespace().collect()),
-                    None => None,
-                };
+                let moves = SEARCH_MOVES.captures(rest).map(|m| {
+                    m.get(1)
+                        .unwrap()
+                        .as_str()
+                        .trim()
+                        .split_whitespace()
+                        .collect()
+                });
                 let ponder = PONDER.is_match(rest);
-                let wtime = match WTIME.captures(rest) {
-                    Some(m) => m.get(1).unwrap().as_str().parse::<u64>().ok(),
-                    None => None,
-                };
+                let wtime = WTIME
+                    .captures(rest)
+                    .and_then(|m| m.get(1).unwrap().as_str().parse::<u64>().ok());
                 let btime = match BTIME.captures(rest) {
                     Some(m) => m.get(1).unwrap().as_str().parse::<u64>().ok(),
                     None => None,
@@ -142,11 +162,14 @@ pub fn do_uci<Eng: Engine>(eng: &mut Eng) {
                 };
                 eng.go(&garg);
             }
-            Some(("stop", _)) => {eng.stop()}
-            Some(("quit", _)) => {eng.stop(); return;}
+            Some(("stop", _)) => eng.stop(),
+            Some(("quit", _)) => {
+                eng.stop();
+                return;
+            }
             Some((t, _)) => {
                 eng.log(&format!("unknown command \"{t}\""));
-            },
+            }
             None => todo!(),
         }
     }

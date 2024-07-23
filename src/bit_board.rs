@@ -5,6 +5,63 @@ use crate::{
     notation::AlgebraicMove,
 };
 
+const LEFT_MASK: u64 = 0x8080808080808080;
+const RIGHT_MASK: u64 = 0x0101010101010101;
+const SIDE_MASK: u64 = LEFT_MASK | RIGHT_MASK;
+const TOP_MASK: u64 = 0xFF00000000000000;
+const BOT_MASK: u64 = 0x00000000000000FF;
+const EDGE_MASK: u64 = LEFT_MASK | RIGHT_MASK;
+
+const fn calc_hor_rook_moves(rook_pos: u8) -> u64 {
+    assert!(rook_pos < 8);
+    let mut acc = 0;
+    let mut i = 0;
+    while i < 8 {
+        if i != rook_pos {
+            acc |= 1 << ((rook_pos & 0b111000) + i);
+        }
+        i += 1;
+    }
+    acc
+}
+
+const fn calc_ver_rook_moves(rook_pos: u8) -> u64 {
+    assert!(rook_pos < 64);
+    assert!(rook_pos & 0b111 == 0);
+    let mut acc = 0;
+    let mut i = 0;
+    while i < 8 {
+        if i << 3 != rook_pos {
+            acc |= 1 << ((rook_pos & 0b000111) + (i << 3));
+        }
+        i += 1;
+    }
+    acc
+}
+
+const fn calc_rook_hmove_map() -> [u64; 8] {
+    let mut table = [0; 8];
+    let mut i = 0;
+    while i < 8 {
+        table[i] = calc_hor_rook_moves(i as u8);
+        i += 1;
+    }
+    table
+}
+
+const fn calc_rook_vmove_map() -> [u64; 8] {
+    let mut table = [0; 8];
+    let mut i = 0;
+    while i < 8 {
+        table[i] = calc_ver_rook_moves((i << 3) as u8);
+        i += 1;
+    }
+    table
+}
+
+const ROOK_VERT_MASKS: [u64; 8] = calc_rook_vmove_map();
+const ROOK_HOR_MASKS: [u64; 8] = calc_rook_hmove_map();
+
 pub struct BBMove {
     /// 0b-pccvvvuuuyyyxxx
     /// xxx: from x

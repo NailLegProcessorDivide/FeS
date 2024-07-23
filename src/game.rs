@@ -16,8 +16,8 @@ impl Move for u16 {
     }
 }
 
-pub trait ChessGame: Sized {
-    type Move: Move;
+pub trait ChessGame: Sized + Clone {
+    type Move: Move + Sync;
     type UnMove;
     fn new() -> Self;
     fn from_fen(fen: &str) -> Option<Self>;
