@@ -5,21 +5,91 @@ use fes::{
     game::{ChessGame, Move},
 };
 
+use rand::{RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+
+#[derive(Debug)]
+struct SideZobristKeys {
+    pub pawn_keys: [u64; 64],
+    pub knight_keys: [u64; 64],
+    pub bishop_keys: [u64; 64],
+    pub rook_keys: [u64; 64],
+    pub queen_keys: [u64; 64],
+    pub king_keys: [u64; 64],
+    pub enpassant_keys: [u64; 8],
+    pub kingside_key: u64,
+    pub queenside_key: u64,
+}
+
+#[derive(Debug)]
+struct ZobristKeys {
+    pub white_keys: SideZobristKeys,
+    pub black_keys: SideZobristKeys,
+}
+
+impl SideZobristKeys {
+    pub fn new(rng: &mut impl RngCore) -> Self {
+        Self {
+            pawn_keys: core::array::from_fn(|_| rng.next_u64()),
+            knight_keys: core::array::from_fn(|_| rng.next_u64()),
+            bishop_keys: core::array::from_fn(|_| rng.next_u64()),
+            rook_keys: core::array::from_fn(|_| rng.next_u64()),
+            queen_keys: core::array::from_fn(|_| rng.next_u64()),
+            king_keys: core::array::from_fn(|_| rng.next_u64()),
+            enpassant_keys: core::array::from_fn(|_| rng.next_u64()),
+            kingside_key: rng.next_u64(),
+            queenside_key: rng.next_u64(),
+        }
+    }
+}
+
+impl ZobristKeys {
+    pub fn new() -> Self {
+        let mut rng = ChaCha20Rng::from_seed([42; 32]);
+        
+        Self { white_keys: SideZobristKeys::new(&mut rng),
+               black_keys: SideZobristKeys::new(&mut rng)
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 pub enum Flag {
     EXACT,
     LOWERBOUND,
     UPPERBOUND,
 }
 
+pub struct TTable {
+    table: Vec<TTVal>
+}
+
+#[derive(Clone, Copy)]
 pub struct TTVal {
     pub flag: Flag,
     pub depth: u8,
     pub value: i32,
-    pub is_valid: bool,
+    pub full_hash: u64,
+}
+
+impl TTable {
+    pub fn new(table_bits: u8) -> Self {
+        let default = TTVal{ flag: Flag::EXACT, depth: 0, value: 0, full_hash: 0 };
+        Self { table: vec![default; 1 << table_bits] }
+    }
+
+    pub fn insert(bitboard: &mut BitBoardGame, flag: Flag, depth: u8, value: i32, full_hash: u64) {
+        
+    }
 }
 
 fn main() {
+    let hello = ZobristKeys::new();
+    print!("{:#?}", hello);
     let mut node = BitBoardGame::from_fen("kbK5/pp6/1P6/8/8/8/8/R7 w - - 0 1").unwrap();
+
+
+
     println!("{}", best_move(&mut node, 7, 1).to_uci());
 }
 
